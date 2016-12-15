@@ -4,6 +4,10 @@
 
 - **OverwatchDumpFix**
 
+## summary
+
+this plugin patches several parts of overwatch.exe in order to produce better process dumps for IDA Pro.
+
 ## usage
 
 1. attach x64dbg to overwatch.exe.
@@ -17,6 +21,6 @@
 ## features
 
 * restores PE Header
-* removes .text section segmentation
+* combines the segmented .text section into one, complete section
 * adjusts iat to allow Scylla to rebuild imports
 * patches "garbage" code with 0xCC
