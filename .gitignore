@@ -1,11 +1,14 @@
 *.cache
+*.exp
 *.iobj
 *.ipdb
 *.lastbuildstate
+*.lib
 *.log
 *.metagen
 *.obj
 *.opensdf
+*.pch
 *.pdb
 *.res
 *.sdf
@@ -17,5 +20,3 @@
 Debug/*
 Release/*
 ipch/*
-log/*
-bin/*

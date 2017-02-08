@@ -1,26 +1,47 @@
 # Overwatch Dump Fix
 
-## added commands
+## Added commands
 
 - **OverwatchDumpFix**
 
-## summary
+## Summary
 
-this plugin patches several parts of overwatch.exe in order to produce better process dumps for IDA Pro.
+This plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch.  This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
 
-## usage
+## Usage
 
-1. attach x64dbg to overwatch.exe.
-2. exec **OverwatchDumpFix**.
-3. open Scylla then select overwatch.exe (reselect it or ntdll.dll is used).
-4. click "IAT Autosearch".
-5. click "Get Imports".
-6. dump the file.
-7. click "Fix Dump", then select the dumped file to rebuild imports.
+### x64dbg
 
-## features
+1. Attach x64dbg to Overwatch.exe then execute the **OverwatchDumpFix** command.
+2. Save the output in the log tab:
+    <pre>
+    [Overwatch Dump Fix] dump fix complete.
+    [Overwatch Dump Fix] Scylla IAT Info:
+    [Overwatch Dump Fix]     OEP =  000000002DE70354
+    [Overwatch Dump Fix]     VA =   000000002DF20000
+    [Overwatch Dump Fix]     Size =             1140
+    [Overwatch Dump Fix] IDA Pro Info:
+    [Overwatch Dump Fix]     overwatch base address = 000000013F780000
+    </pre>
+3. Open Scylla, set Overwatch.exe as the attach process, click "Pick DLL".
+4. Select Overwatch.exe in the module list (sort by ImageBase, it will be the lowest address).
+5. Set the "OEP", "VA", and "Size" values according to log output.
+6. Click "Get Imports".
+7. Click "Dump" and save the file as an .exe.
+8. Click "Fix Dump" and select the dump file (adjust the type filter).
+9. The Scylla ouput view should say "Import Rebuild success [FILE PATH]".
 
-* restores PE Header
-* combines the segmented .text section into one, complete section
-* adjusts iat to allow Scylla to rebuild imports
-* patches "garbage" code with 0xCC
+### IDA Pro
+
+10. Open the dump file in IDA.  Check the "Manual Load" box.  Click "OK" / "Yes" for every prompt.
+11. Wait for IDA to finish analysis.
+12. Execute the **correct_invalid_RVAs.py** script using the overwatch base address from log output.
+13. Happy reversing :sunglasses:.
+
+## Building
+
+A post-build event requires the **"X64DBG_PATH"** environment variable to be defined to x64dbg's installation directory.
+
+## Notes
+
+- This plugin is tested while offline on battlenet.

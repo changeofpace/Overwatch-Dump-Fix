@@ -1,33 +1,33 @@
 #include "ow_imports.h"
-#include <string>
 #include <vector>
 #include "fix_dump.h"
+#include "memory_util.h"
+
+namespace {
+const size_t iatMaxEntryCount = 1024;
+ScyllaIATInfo scyllaInfo;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // main
 
-// The import address table (DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT]) of the
-// secret PE Header points to MessageBoxW (changed in 12.13.2016?) which is
-// not located at .rdata's base address (abnormal behavior).
-//
 // This function iterates over the iat, resolves each thunk to the import's
 // real virtual address, then patches the iat with the resolved import array.
 // DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT] is patched to point to .rdata's base
 // address.
-BOOL RebuildImports(const REMOTE_PE_HEADER_DATA& HeaderData)
+bool RebuildImports(const REMOTE_PE_HEADER& HeaderData)
 {
     // import thunks to packed code blocks start at .rdata's base address.
-    const ULONG_PTR importAddressTable = GetImportAddressTable(HeaderData);
-    ULONG_PTR iatThunkArray[512];
-    ZeroMemory(iatThunkArray, 512);
-    if (!DbgMemRead(importAddressTable, PBYTE(iatThunkArray), 512 * sizeof(ULONG_PTR)))
+    const duint importAddressTable = GetImportAddressTable(HeaderData);
+    duint iatThunkArray[iatMaxEntryCount] = {};
+    if (!memutil::RemoteRead(importAddressTable, PBYTE(iatThunkArray), iatMaxEntryCount * sizeof(duint)))
     {
-        PluginLog("RebuildImports:  failed to read import address table at %p.\n", importAddressTable);
-        return FALSE;
+        PluginLog("RebuildImports: failed to read import address table at %p.\n", importAddressTable);
+        return false;
     }
 
     // walk the table, resolving all thunks to their real va destination.
-    std::vector<ULONG_PTR> unpackedThunkArray;
+    std::vector<duint> unpackedThunkArray;
     for (int i = 0; iatThunkArray[i] > 0; i++)
     {
         for (; iatThunkArray[i] > 0; i++)
@@ -36,33 +36,47 @@ BOOL RebuildImports(const REMOTE_PE_HEADER_DATA& HeaderData)
     }
     unpackedThunkArray.push_back(0);
 
+    const DWORD iatSize = DWORD(unpackedThunkArray.size() * sizeof(duint));
+
     // replace packed thunks with resolved virtual addresses.
-    if (!DbgMemWrite(importAddressTable, PBYTE(unpackedThunkArray.data()), unpackedThunkArray.size() * sizeof(ULONG_PTR)))
+    if (!memutil::RemoteWrite(importAddressTable, PBYTE(unpackedThunkArray.data()), iatSize))
     {
-        PluginLog("RebuildImports:  failed to write unpacked thunk array to %p.\n", importAddressTable);
-        return FALSE;
+        PluginLog("RebuildImports: failed to write unpacked thunk array to %p.\n", importAddressTable);
+        return false;
     }
 
-    // update the header's import address table pointer.
-    ULONG_PTR iatdd = HeaderData.baseAddress + HeaderData.dataDirectory[IMAGE_DIRECTORY_ENTRY_IAT]->VirtualAddress;
-    if (!DbgMemWrite(ULONG_PTR(iatdd), PBYTE(&importAddressTable), sizeof(ULONG_PTR)))
+    // update the header's import address table pointer and size.
+    const duint iatDDAddress = duint(HeaderData.dataDirectory[IMAGE_DIRECTORY_ENTRY_IAT]) - duint(HeaderData.dosHeader) + HeaderData.remoteBaseAddress;
+    const DWORD iatRVA = DWORD(importAddressTable - HeaderData.remoteBaseAddress);
+    if (!memutil::RemoteWrite(iatDDAddress, PVOID(&iatRVA), sizeof(iatRVA)) ||
+        !memutil::RemoteWrite(iatDDAddress + sizeof(DWORD), PVOID(&iatSize), sizeof(iatSize)))
     {
-        PluginLog("RebuildImports:  failed to patch IAT data directory ptr at %p to %p.\n", iatdd, importAddressTable);
-        return FALSE;
+        PluginLog("RebuildImports: failed to patch IAT data directory at %p.\n", iatDDAddress);
+        return false;
     }
 
-    return TRUE;
+    // imports successfully rebuilt. Set the values to use in Scylla's IAT Info 'box'.
+    const duint oep = HeaderData.remoteBaseAddress + HeaderData.optionalHeader->AddressOfEntryPoint;
+    scyllaInfo = ScyllaIATInfo(oep, importAddressTable, iatSize);
+
+    return true;
+}
+
+ScyllaIATInfo GetScyllaInfo()
+{
+    return scyllaInfo;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // import unpacking
 
-ULONG_PTR GetImportAddressTable(const REMOTE_PE_HEADER_DATA& HeaderData)
+duint GetImportAddressTable(const REMOTE_PE_HEADER& HeaderData)
 {
-    return GetSectionVirtualAddressByName(HeaderData, ".rdata");
+    PIMAGE_SECTION_HEADER rdata = GetSectionByName(HeaderData, ".rdata");
+    return rdata != nullptr ? HeaderData.remoteBaseAddress + rdata->VirtualAddress : 0;
 }
 
-ULONG_PTR UnpackImportThunkBlock(ULONG_PTR BlockBaseAddress)
+duint UnpackImportThunkBlock(duint BlockBaseAddress)
 {
     duint ea = BlockBaseAddress;
     DISASM_INSTR disasm;
@@ -77,14 +91,11 @@ ULONG_PTR UnpackImportThunkBlock(ULONG_PTR BlockBaseAddress)
     return UnpackImportThunkDestination(cipher, key, op);
 }
 
-ULONG_PTR UnpackImportThunkDestination(duint Cipher, duint Key, const std::string& Operation)
+duint UnpackImportThunkDestination(duint Cipher, duint Key, const std::string& Operation)
 {
-    if (Operation == "xor")
-        return Cipher ^ Key;
-    else if (Operation == "add")
-        return Cipher + Key;
-    else if (Operation == "sub")
-        return Cipher - Key;
+    if      (Operation == "xor") return Cipher ^ Key;
+    else if (Operation == "add") return Cipher + Key;
+    else if (Operation == "sub") return Cipher - Key;
     return 0;
 }
 

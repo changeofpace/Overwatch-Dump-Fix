@@ -1,30 +1,30 @@
 #include "plugin.h"
 #include "fix_dump.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// globals
+// plugin exported command
+const char* const cmdOverwatchDumpFix = "OverwatchDumpFix";
 
-HANDLE global::hProcess = nullptr;
+enum { PLUGIN_MENU_ABOUT };
 
-////////////////////////////////////////////////////////////////////////////////
-// types
-
-enum {
-    PLUGIN_MENU_ABOUT,
-};
+HANDLE debuggee::hProcess = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-// plugin exports
+// added commands
 
-PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* info)
+static bool cbOverwatchDumpFix(int argc, char* argv[])
 {
-    global::hProcess = info->fdProcessInfo->hProcess;
+    debuggee::hProcess = DbgGetProcessHandle();
+    if (!debuggee::hProcess)
+    {
+        PluginLog("DbgGetProcessHandle failed.\n");
+        return false;
+    }
+    fix_dump::current::FixOverwatch();
+    return true;
 }
 
-PLUG_EXPORT void CBSTOPDEBUG(CBTYPE cbType, PLUG_CB_STOPDEBUG* info)
-{
-    global::hProcess = nullptr;
-}
+////////////////////////////////////////////////////////////////////////////////
+// x64dbg
 
 PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 {
@@ -32,24 +32,12 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
     {
     case PLUGIN_MENU_ABOUT:
         MessageBoxA(hwndDlg,
-            "author:  changeofpace.\n\nsource code:  https://github.com/changeofpace/Overwatch-Dump-Fix.",
+            "Author:  changeofpace.\n\nsource code:  https://github.com/changeofpace/Overwatch-Dump-Fix.",
             "About",
             0);
         break;
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// added commands
-
-static bool cbOverwatchDumpFix(int argc, char* argv[])
-{
-    FixOverwatch();
-    return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// required x64dbg plugin funcs
 
 bool pluginInit(PLUG_INITSTRUCT* initStruct)
 {
@@ -73,10 +61,7 @@ void pluginSetup()
     _plugin_menuaddentry(hMenu, PLUGIN_MENU_ABOUT, "&About");
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// utils
-
-VOID PluginLog(const char* Format, ...)
+void PluginLog(const char* Format, ...)
 {
     va_list valist;
     char buf[MAX_STRING_SIZE];

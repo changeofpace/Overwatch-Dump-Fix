@@ -290,6 +290,12 @@
     <ClInclude Include="ow_imports.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="nt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="memory_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="pluginsdk\x32bridge.lib">
@@ -361,6 +367,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ow_imports.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="memory_util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

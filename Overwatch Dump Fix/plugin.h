@@ -3,19 +3,15 @@
 #include "pluginmain.h"
 
 #define PLUGIN_NAME "Overwatch Dump Fix"
-#define PLUGIN_VERSION 1
+#define PLUGIN_VERSION 2
+#define PLOG(Format, ...) _plugin_logprintf(Format, __VA_ARGS__)
 
 bool pluginInit(PLUG_INITSTRUCT* initStruct);
 bool pluginStop();
 void pluginSetup();
 
-// debug log
-#define plog(format, ...) _plugin_logprintf(format, __VA_ARGS__)
+void PluginLog(const char* Format, ...);
 
-// log format:  [PLUGIN_NAME]:  words
-VOID PluginLog(const char* Format, ...);
-
-namespace global
-{
+namespace debuggee {
 extern HANDLE hProcess;
 }
