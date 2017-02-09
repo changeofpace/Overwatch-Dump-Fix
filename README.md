@@ -1,12 +1,12 @@
 # Overwatch Dump Fix
 
-## Added commands
-
-- **OverwatchDumpFix**
-
 ## Summary
 
 This plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch.  This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
+
+## Added commands
+
+- **OverwatchDumpFix**
 
 ## Usage
 
@@ -30,13 +30,14 @@ This plugin removes anti-dumping and obfuscation techniques from the popular FPS
 7. Click "Dump" and save the file as an .exe.
 8. Click "Fix Dump" and select the dump file (adjust the type filter).
 9. The Scylla ouput view should say "Import Rebuild success [FILE PATH]".
+10. Click "PE Rebuild" and select the fixed dump file.
 
 ### IDA Pro
 
-10. Open the dump file in IDA.  Check the "Manual Load" box.  Click "OK" / "Yes" for every prompt.
-11. Wait for IDA to finish analysis.
-12. Execute the **correct_invalid_RVAs.py** script using the overwatch base address from log output.
-13. Happy reversing :sunglasses:.
+11. Open the dump file in IDA.  Check the "Manual Load" box.  Click "OK" / "Yes" for every prompt.
+12. Wait for IDA to finish analysis.
+13. Execute the **correct_invalid_RVAs.py** script using the overwatch base address from log output.
+14. Happy reversing :sunglasses:.
 
 ## Building
 

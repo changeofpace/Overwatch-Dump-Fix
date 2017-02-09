@@ -86,7 +86,7 @@ duint fix_dump::current::BuildNewOverwatchRegion(const REMOTE_PE_HEADER& Overwat
             //memutil::RemoteRead(secretPEHeaderAddress, transferBuffer, 0x400) &&
             memutil::RemoteWrite(duint(newOverwatchRegion), transferBuffer, OverwatchPEHeader.optionalHeader->SizeOfImage))
         {
-            VirtualFree(transferBuffer, OverwatchPEHeader.optionalHeader->SizeOfImage, MEM_RELEASE);
+            VirtualFree(transferBuffer, 0, MEM_RELEASE);
             return duint(newOverwatchRegion);
         }
         else
@@ -96,7 +96,7 @@ duint fix_dump::current::BuildNewOverwatchRegion(const REMOTE_PE_HEADER& Overwat
         PluginLog("BuildNewOverwatchRegion: GetSecretPEHeaderBaseAddress failed.\n");
 
     VirtualFreeEx(debuggee::hProcess, newOverwatchRegion, OverwatchPEHeader.optionalHeader->SizeOfImage, MEM_RELEASE);
-    VirtualFree(transferBuffer, OverwatchPEHeader.optionalHeader->SizeOfImage, MEM_RELEASE);
+    VirtualFree(transferBuffer, 0, MEM_RELEASE);
     return 0;
 }
 

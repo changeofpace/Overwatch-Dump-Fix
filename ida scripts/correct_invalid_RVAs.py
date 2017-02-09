@@ -11,8 +11,7 @@ import idaapi
 def main():
     overwatch_imagebase = idc.AskAddr(idc.BADADDR, "Enter Overwatch's base address.")
     if overwatch_imagebase and overwatch_imagebase is not idc.BADADDR:
-        current_imagebase = idaapi.get_imagebase()
-        delta = overwatch_imagebase - current_imagebase
+        delta = overwatch_imagebase - idaapi.get_imagebase()
         status = rebase_program(delta, idc.MSF_NOFIX)
         if status is not idc.MOVE_SEGM_OK:
             print "rebase_program failed %d." % (status)
