@@ -61,7 +61,7 @@ duint fix_dump::current::BuildNewOverwatchRegion(const REMOTE_PE_HEADER& Overwat
     LPVOID newOverwatchRegion = VirtualAllocEx(debuggee::hProcess,
                                                NULL,
                                                OverwatchPEHeader.optionalHeader->SizeOfImage,
-                                               MEM_COMMIT,
+                                               MEM_COMMIT | MEM_RESERVE,
                                                PAGE_EXECUTE_READWRITE);
     if (!newOverwatchRegion)
     {
@@ -71,7 +71,7 @@ duint fix_dump::current::BuildNewOverwatchRegion(const REMOTE_PE_HEADER& Overwat
 
     LPVOID transferBuffer = VirtualAlloc(NULL,
                                          OverwatchPEHeader.optionalHeader->SizeOfImage,
-                                         MEM_COMMIT,
+                                         MEM_COMMIT | MEM_RESERVE,
                                          PAGE_EXECUTE_READWRITE);
     if (!transferBuffer)
     {
@@ -145,7 +145,7 @@ void fix_dump::current::RestoreSectionProtection(const REMOTE_PE_HEADER& NewRegi
 // PEB.Ldr.InMemoryOrderModuleList.
 bool fix_dump::current::NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
 {
-    LPVOID remoteEntryAddress = VirtualAllocEx(debuggee::hProcess, NULL, sizeof(LDR_DATA_TABLE_ENTRY), MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    LPVOID remoteEntryAddress = VirtualAllocEx(debuggee::hProcess, NULL, sizeof(LDR_DATA_TABLE_ENTRY), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!remoteEntryAddress)
     {
         PluginLog("NoticeMeScylla: VirtualAllocEx failed for remoteEntryAddress, %d.\n", GetLastError());
