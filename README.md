@@ -2,13 +2,17 @@
 
 ## Summary
 
-This plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch.  This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
+This x64dbg plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch.  This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
 
-## Added commands
+## v2.0
 
-- **OverwatchDumpFix**
+Restoring imports with Scylla has been improved by remapping Overwatch's memory mapped views with PAGE\_EXECUTE\_READWRITE protection instead of dumping a copy of the image.
 
 ## Usage
+
+### Added commands
+
+- **OverwatchDumpFix**
 
 ### x64dbg
 
