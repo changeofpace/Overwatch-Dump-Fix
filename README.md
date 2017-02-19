@@ -22,7 +22,7 @@ Restoring imports with Scylla has been improved by remapping Overwatch's memory 
 4. Click "Get Imports".
 5. Click "Dump" and save the file as an .exe.
 6. Click "Fix Dump" and select the dump file (adjust the type filter).
-7. The Scylla ouput view should say "Import Rebuild success [FILE PATH]".
+7. The Scylla output view should say "Import Rebuild success [FILE PATH]".
 8. Click "PE Rebuild" and select the fixed dump file.
 
 ### IDA Pro
