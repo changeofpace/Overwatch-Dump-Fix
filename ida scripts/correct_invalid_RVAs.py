@@ -1,3 +1,5 @@
+# No longer necessary with release v2.0.
+#
 # This script corrects invalid RVAs by rebasing the .idb to Overwatch's imagebase.
 # See plugin output:
 #   [Overwatch Dump Fix] IDA Pro Info:

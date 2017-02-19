@@ -162,17 +162,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="debug.cpp" />
     <ClCompile Include="fix_dump.cpp" />
-    <ClCompile Include="memory_util.cpp" />
+    <ClCompile Include="memory.cpp" />
+    <ClCompile Include="ntapi.cpp" />
     <ClCompile Include="ow_imports.cpp" />
     <ClCompile Include="pe_header.cpp" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="pluginmain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="debug.h" />
     <ClInclude Include="fix_dump.h" />
-    <ClInclude Include="memory_util.h" />
+    <ClInclude Include="memory.h" />
     <ClInclude Include="nt.h" />
+    <ClInclude Include="ntapi.h" />
     <ClInclude Include="ow_imports.h" />
     <ClInclude Include="pe_header.h" />
     <ClInclude Include="plugin.h" />

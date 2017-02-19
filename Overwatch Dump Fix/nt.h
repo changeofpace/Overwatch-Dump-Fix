@@ -1,10 +1,16 @@
 #pragma once
 
 #include <Windows.h>
-#include <Subauth.h>
 
 // from carberp malware
 #define GDI_HANDLE_BUFFER_SIZE      34
+
+typedef struct _UNICODE_STRING
+{
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
 
 typedef struct _LDR_DATA_TABLE_ENTRY
 {
@@ -29,7 +35,6 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     PVOID Unknown1;
     PVOID Unknown2;
     PVOID Unknown3;
-
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
 
 typedef struct _PEB_LDR_DATA
@@ -41,7 +46,6 @@ typedef struct _PEB_LDR_DATA
     LIST_ENTRY InMemoryOrderModuleList;
     LIST_ENTRY InInitializationOrderModuleList;
     PVOID      EntryInProgress;
-
 } PEB_LDR_DATA, *PPEB_LDR_DATA;
 
 typedef struct _PEB
@@ -103,5 +107,4 @@ typedef struct _PEB
     ULONG ImageSubsystemMinorVersion;
     ULONG ImageProcessAffinityMask;
     ULONG GdiHandleBuffer[GDI_HANDLE_BUFFER_SIZE];
-
 } PEB, *PPEB;

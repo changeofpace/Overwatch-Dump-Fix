@@ -4,11 +4,13 @@
 #include <array>
 #include <vector>
 
-#define PAGE_SIZE       0x1000
-#define PAGE_ALIGN(Va)  ((PVOID)((ULONG_PTR)(Va) & ~(PAGE_SIZE - 1)))
-#define PE_HEADER_SIZE  0x1000
+#define PAGE_SIZE               0x1000
+#define PAGE_ALIGN(Va)          ((PVOID)((ULONG_PTR)(Va) & ~(PAGE_SIZE - 1)))
+#define ROUND_TO_PAGES(Size)    (((ULONG_PTR)(Size) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
-////////////////////////////////////////////////////////////////////////////////
+#define PE_HEADER_SIZE          0x1000
+
+///////////////////////////////////////////////////////////////////////////////
 // types
 
 struct PE_HEADER
@@ -18,23 +20,24 @@ struct PE_HEADER
     PIMAGE_FILE_HEADER fileHeader;
     PIMAGE_OPTIONAL_HEADER optionalHeader;
     std::array<PIMAGE_DATA_DIRECTORY, IMAGE_NUMBEROF_DIRECTORY_ENTRIES> dataDirectory;
-    std::vector<PIMAGE_SECTION_HEADER> sectionHeader;
+    std::vector<PIMAGE_SECTION_HEADER> sectionHeaders;
 };
 
 struct REMOTE_PE_HEADER : PE_HEADER
 {
-    ULONG_PTR remoteBaseAddress;
+    SIZE_T remoteBaseAddress;
     BYTE rawData[PE_HEADER_SIZE];
 };
 
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // ctors
 
-bool FillPEHeader(ULONG_PTR BaseAddress, OUT PE_HEADER& PEHeader);
-bool FillRemotePEHeader(HANDLE ProcessHandle, ULONG_PTR BaseAddress, OUT REMOTE_PE_HEADER& PEHeader);
+bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader);
+bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress, REMOTE_PE_HEADER& PeHeader);
 
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // utils
 
-bool IsValidPEHeader(ULONG_PTR BaseAddress);
-const PIMAGE_SECTION_HEADER GetSectionByName(const PE_HEADER& HeaderData, const char* SectionName);
+bool IsValidPeHeader(SIZE_T BaseAddress);
+const PIMAGE_SECTION_HEADER GetPeSectionByName(const PE_HEADER& PeHeader, const char* SectionName);
+DWORD GetSizeOfImage(PVOID BaseAddress);

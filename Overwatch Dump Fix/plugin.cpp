@@ -8,7 +8,7 @@ enum { PLUGIN_MENU_ABOUT };
 
 HANDLE debuggee::hProcess = nullptr;
 
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // added commands
 
 static bool cbOverwatchDumpFix(int argc, char* argv[])
@@ -19,11 +19,11 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
         PluginLog("DbgGetProcessHandle failed.\n");
         return false;
     }
-    fix_dump::current::FixOverwatch();
+    fixdump::current::FixOverwatch();
     return true;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // x64dbg
 
 PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
