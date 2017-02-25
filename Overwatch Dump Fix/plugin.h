@@ -13,6 +13,7 @@ bool pluginInit(PLUG_INITSTRUCT* initStruct);
 bool pluginStop();
 void pluginSetup();
 
+// TODO: redo this
 namespace debuggee {
 extern HANDLE hProcess;
 } // namespace debuggee

@@ -12,7 +12,7 @@ typedef long NTSTATUS;
 __forceinline NTSTATUS NT_SUCCESS(NTSTATUS Status) { return Status >= 0; }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Section Access Rights.
+// Section Access Rights
 
 const ULONG SEC_NO_CHANGE = 0x00400000;
 

@@ -9,12 +9,12 @@
 
 namespace {
 
-const size_t iatMaxEntryCount = 1024;
+const size_t iatMaxEntryCount = 2048;
 
 ///////////////////////////////////////////////////////////////////////////////
 // import unpacking
 
-duint GetImportAddressTable(const REMOTE_PE_HEADER& HeaderData)
+SIZE_T GetImportAddressTable(const REMOTE_PE_HEADER& HeaderData)
 {
     PIMAGE_SECTION_HEADER rdata = GetPeSectionByName(HeaderData, ".rdata");
     return rdata != nullptr ? HeaderData.remoteBaseAddress + rdata->VirtualAddress : 0;
@@ -27,7 +27,7 @@ std::string GetMnemonic(const DISASM_INSTR& Disasm)
     return std::string(Disasm.instruction, Disasm.instruction + i);
 }
 
-duint UnpackImportThunkDestination(duint Cipher, duint Key, const std::string& Operation)
+SIZE_T UnpackImportThunkDestination(SIZE_T Cipher, SIZE_T Key, const std::string& Operation)
 {
     if (Operation == "xor")      return Cipher ^ Key;
     else if (Operation == "add") return Cipher + Key;
@@ -35,17 +35,17 @@ duint UnpackImportThunkDestination(duint Cipher, duint Key, const std::string& O
     return 0;
 }
 
-duint UnpackImportThunkBlock(duint BlockBaseAddress)
+SIZE_T UnpackImportThunkBlock(SIZE_T BlockBaseAddress)
 {
-    duint ea = BlockBaseAddress;
+    SIZE_T ea = BlockBaseAddress;
     DISASM_INSTR disasm;
     DbgDisasmAt(ea, &disasm);
-    const duint cipher = disasm.arg[1].value;
+    const SIZE_T cipher = disasm.arg[1].value;
 
     ea += disasm.instr_size;
     DbgDisasmAt(ea, &disasm);
     const std::string op = GetMnemonic(disasm);
-    const duint key = disasm.arg[1].value;
+    const SIZE_T key = disasm.arg[1].value;
 
     return UnpackImportThunkDestination(cipher, key, op);
 }
@@ -55,9 +55,9 @@ duint UnpackImportThunkBlock(duint BlockBaseAddress)
 bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
 {
     // import thunks to packed code blocks start at .rdata's base address.
-    const duint importAddressTable = GetImportAddressTable(HeaderData);
-    duint iatThunkArray[iatMaxEntryCount] = {};
-    if (!memory::util::RemoteRead(importAddressTable, PVOID(iatThunkArray), iatMaxEntryCount * sizeof(duint)))
+    const SIZE_T importAddressTable = GetImportAddressTable(HeaderData);
+    SIZE_T iatThunkArray[iatMaxEntryCount] = {};
+    if (!memory::util::RemoteRead(importAddressTable, PVOID(iatThunkArray), iatMaxEntryCount * sizeof(SIZE_T)))
     {
         PluginLog("Error: failed to read import address table at %p.\n", importAddressTable);
         return false;
@@ -65,7 +65,7 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
 
     int importCountDelta = 1;
     // walk the table, resolving all thunks to their real va destination.
-    std::vector<duint> unpackedThunkArray;
+    std::vector<SIZE_T> unpackedThunkArray;
     for (int i = 0; iatThunkArray[i] > 0; i++)
     {
         for (; iatThunkArray[i] > 0; i++)
@@ -75,7 +75,7 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     }
     unpackedThunkArray.push_back(0);
 
-    const DWORD iatSize = DWORD(unpackedThunkArray.size() * sizeof(duint));
+    const DWORD iatSize = DWORD(unpackedThunkArray.size() * sizeof(SIZE_T));
 
     // replace packed thunks with resolved virtual addresses.
     if (!memory::util::RemoteWrite(importAddressTable, PVOID(unpackedThunkArray.data()), iatSize))
@@ -85,9 +85,9 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     }
 
     // update the header's import address table pointer and size.
-    const duint iatDDAddress = duint(HeaderData.dataDirectory[IMAGE_DIRECTORY_ENTRY_IAT]) -
-                               duint(HeaderData.dosHeader) +
-                               HeaderData.remoteBaseAddress;
+    const SIZE_T iatDDAddress = SIZE_T(HeaderData.dataDirectory[IMAGE_DIRECTORY_ENTRY_IAT]) -
+                                SIZE_T(HeaderData.dosHeader) +
+                                HeaderData.remoteBaseAddress;
     const DWORD iatRVA = DWORD(importAddressTable - HeaderData.remoteBaseAddress);
     if (!memory::util::RemoteWrite(iatDDAddress, PVOID(&iatRVA), sizeof(iatRVA)) ||
         !memory::util::RemoteWrite(iatDDAddress + sizeof(DWORD), PVOID(&iatSize), sizeof(iatSize)))
@@ -96,7 +96,7 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
         return false;
     }
 
-    PluginLog("restored %d imports at %p.\n",
+    PluginLog("Restored %d imports at %p.\n",
               unpackedThunkArray.size() - importCountDelta,
               importAddressTable);
 

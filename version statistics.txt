@@ -1,0 +1,20 @@
+IDA SETTINGS
+    - Load resources
+    - Manual load (Yes to all prompts)
+===============================================================================
+
+v2.0
+    Names:         20958
+    Functions:    106507
+    Strings:      155523
+    Local Types:     417
+    Imports:         528
+    Exports:          85
+
+v2.1
+    Names:         20897
+    Functions:    106507
+    Strings:      156008
+    Local Types:     417
+    Imports:         528
+    Exports:          85

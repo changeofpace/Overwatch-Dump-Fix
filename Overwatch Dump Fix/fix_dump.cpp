@@ -2,72 +2,145 @@
 
 #include <vector>
 
-#include "debug.h"
 #include "memory.h"
 #include "nt.h"
 #include "ow_imports.h"
 
+static bool verbose = false;
+
 ///////////////////////////////////////////////////////////////////////////////
 // current
 
-void fixdump::current::FixOverwatch()
+bool fixdump::current::FixOverwatch(bool VerboseOutput)
 {
-    const duint imagebase = util::GetOverwatchImageBase();
+    verbose = VerboseOutput;
+
+    const SIZE_T imagebase = util::GetOverwatchImageBase();
     if (!imagebase)
     {
         PluginLog("Error: failed to locate overwatch's imagebase.\n");
-        return;
+        return false;
     }
-    const duint secretHeaderBase = util::GetSecretPEHeaderBaseAddress();
+    const SIZE_T secretHeaderBase = util::GetSecretPEHeaderBaseAddress();
     if (!secretHeaderBase)
     {
         PluginLog("Error: failed to locate secret PE Header.\n");
-        return;
+        return false;
     }
-
     REMOTE_PE_HEADER secretPeHeader;
     if (!FillRemotePeHeader(debuggee::hProcess, secretHeaderBase, secretPeHeader))
-        return;
+    {
+        PluginLog("Error: secret PE header at %p was invalid.\n", secretHeaderBase);
+        return false;
+    }
+    
+    if (verbose)
+    {
+        PluginLog("Found Overwatch.exe's imagebase at %p.\n", imagebase);
+        PluginLog("Found secret PE header at %p.\n", secretHeaderBase);
+    }
 
-    std::vector<MEMORY_BASIC_INFORMATION> pageInfo;
-    if (!memory::util::GetPageInfo(imagebase, secretPeHeader.optionalHeader->SizeOfImage, pageInfo))
+    std::vector<MEMORY_BASIC_INFORMATION> viewsPageInfo;
+    if (!memory::util::GetPageInfo(imagebase, secretPeHeader.optionalHeader->SizeOfImage, viewsPageInfo))
     {
         PluginLog("Error: GetPageInfo failed (secret pe header has an invalid image size?).\n");
-        return;
+        return false;
     }
 
-    //for (auto page : pageInfo)
-    //    plugindbg::DumpMemoryBasicInformationShort(page);
-
-    // Remap every memory mapped view with PAGE_EXECUTE_READWRITE protection.
-    for (const auto& page: pageInfo)
+    // TODO: add prot to string from pe header utils
+    if (verbose)
     {
-        //PluginLog("remapping  %p  %16llX\n", page.BaseAddress, page.RegionSize);
-        if (!memory::RemapViewOfSection(SIZE_T(page.BaseAddress), page.RegionSize))
-            PluginLog("Error: failed to remap view at %p, %llX.\n", page.BaseAddress, page.RegionSize);
+        PluginLog("Found %d views:\n", viewsPageInfo.size());
+        for (auto pageInfo : viewsPageInfo)
+            PluginLog("    %p  %-16llX  %X\n",
+                      pageInfo.BaseAddress,
+                      pageInfo.RegionSize,
+                      pageInfo.Protect);
     }
 
-    // .rdata is split into two views, combine them.
-    if (!memory::CombineAdjacentViews(
-        std::vector<MEMORY_BASIC_INFORMATION>(pageInfo.begin() + 1, pageInfo.begin() + 3)))
-            return;
+    // Future proofing. 
+    // Check that there's at least two views.
+    if (viewsPageInfo.size() < 2)
+    {
+        PluginLog("Error: found unexpected number of views (%d). A patch has probably introduced new anti-dumping protection so this plugin needs to be updated.\n",
+                  viewsPageInfo.size());
+        return false;
+    }
+    // There are 9 views as of 2.25.2017 (.rdata is split into two views).
+    // The plugin should still work as long as .text and .rdata are the first
+    // two views.
+    else if (viewsPageInfo.size() != 9)
+    {
+        PluginLog("Warning: found unexpected number of views (%d).\n",
+                  viewsPageInfo.size());
+    }
 
+    // Remap the views representing .text and .rdata with PAGE_EXECUTE_READWRITE protection.
+    // note: only the first .rdata is remapped.
+    MEMORY_BASIC_INFORMATION textView = viewsPageInfo[0];
+    MEMORY_BASIC_INFORMATION rdataView = viewsPageInfo[1];
+
+    auto remapView = [](const MEMORY_BASIC_INFORMATION& ViewPageInfo)
+    {
+        if (verbose)
+            PluginLog("Remapping view at %p (%llX).\n",
+                      ViewPageInfo.BaseAddress,
+                      ViewPageInfo.RegionSize);
+        if (!memory::RemapViewOfSection(SIZE_T(ViewPageInfo.BaseAddress), ViewPageInfo.RegionSize))
+            PluginLog("Error: failed to remap view at %p (%llX).\n",
+                      ViewPageInfo.BaseAddress,
+                      ViewPageInfo.RegionSize);
+    };
+
+    remapView(textView);
+    remapView(rdataView);
+
+    // Fix the local PE Header for Overwatch.exe then apply it to the debuggee.
     if (!RestorePeHeader(secretPeHeader))
     {
         PluginLog("Error: failed to write local PE Header to %p.\n", secretPeHeader.optionalHeader->ImageBase);
-        return;
+        return false;
     }
 
+    // Unpack imports.
     REMOTE_PE_HEADER restoredPeHeader;
     if (!FillRemotePeHeader(debuggee::hProcess, imagebase, restoredPeHeader))
-        return;
+    {
+        PluginLog("Error: restored PE header at %p was invalid.\n", imagebase);
+        return false;
+    }
 
     if (!owimports::RebuildImports(restoredPeHeader))
-        return;
+    {
+        PluginLog("Error: failed to rebuild imports.\n");
+        return false;
+    }
 
-    RestoreSectionProtections(secretPeHeader);
+    // Restore .text .rdata's view page protection to the expected value.
+    auto restoreProtection = [](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
+    {
+        if (verbose)
+            PluginLog("Restoring protection at %p (%llX) to %X\n",
+                      BaseAddress,
+                      RegionSize,
+                      NewProtection);
 
-    PluginLog("completed successfully. Use Scylla to dump Overwatch.exe.\n");
+        DWORD oldProtection = 0;
+        if (!VirtualProtectEx(debuggee::hProcess,
+                              BaseAddress,
+                              RegionSize,
+                              NewProtection,
+                              &oldProtection))
+            PluginLog("Warning: failed to restore view protection at %p (%llX).\n",
+                      BaseAddress,
+                      RegionSize);
+    };
+
+    restoreProtection(textView.BaseAddress, textView.RegionSize, PAGE_EXECUTE_READ);
+    restoreProtection(rdataView.BaseAddress, rdataView.RegionSize, PAGE_READONLY);
+    restoreProtection(textView.BaseAddress, PE_HEADER_SIZE, PAGE_READONLY); // PE header
+
+    return true;
 }
 
 bool fixdump::current::RestorePeHeader(REMOTE_PE_HEADER& PeHeader)
@@ -79,7 +152,75 @@ bool fixdump::current::RestorePeHeader(REMOTE_PE_HEADER& PeHeader)
     return memory::util::RemoteWrite(PeHeader.optionalHeader->ImageBase, PVOID(PeHeader.rawData), PE_HEADER_SIZE);
 }
 
-void fixdump::current::RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
+///////////////////////////////////////////////////////////////////////////////
+// util
+
+SIZE_T fixdump::util::GetOverwatchImageBase()
+{
+    return DbgValFromString("overwatch.exe:0");
+}
+
+// TODO: rewrite with ntqvm using IsValidPEHeader
+SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
+{
+    MEMMAP memmap;
+    if (DbgMemMap(&memmap))
+    {
+        for (int i = 0; i < memmap.count; i++)
+        {
+            MEMPAGE* page = &memmap.page[i];
+            if (page->mbi.RegionSize == PE_HEADER_SIZE)
+            {
+                WORD dosMagic = 0;
+                if (memory::util::RemoteRead(SIZE_T(page->mbi.AllocationBase), PVOID(&dosMagic), sizeof(dosMagic)))
+                {
+                    if (dosMagic == IMAGE_DOS_SIGNATURE)
+                        return SIZE_T(page->mbi.AllocationBase);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+//// ported from injection code, crashes.
+//SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
+//{
+//    const SIZE_T imagebase = GetOverwatchImageBase();
+//    for (SIZE_T ea = 0; ea < imagebase; /**/)
+//    {
+//        MEMORY_BASIC_INFORMATION mbi = {};
+//        if (!VirtualQueryEx(debuggee::hProcess, PVOID(ea), &mbi, sizeof(mbi)))
+//        {
+//            PluginLog("Error: VirtualQueryEx failed for %p: .%d.\n",
+//                      ea,
+//                      GetLastError());
+//            return 0;
+//        }
+//
+//        if (mbi.State == MEM_COMMIT &&
+//            mbi.Type == MEM_PRIVATE &&
+//            IsValidPeHeader(SIZE_T(mbi.BaseAddress)))
+//                return SIZE_T(mbi.BaseAddress);
+//
+//        //PluginLog("base:  %p, size:  %p, state:  %8X, type:  %8X\n",
+//        //          mbi.BaseAddress,
+//        //          mbi.RegionSize,
+//        //          mbi.State,
+//        //          mbi.Type);
+//
+//        ea += mbi.RegionSize;
+//    }
+//    return 0;
+//}
+
+///////////////////////////////////////////////////////////////////////////////
+// archive
+
+namespace fixdump {
+namespace archive {
+
+void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
 {
     auto restoreProtection = [](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
     {
@@ -90,19 +231,19 @@ void fixdump::current::RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeade
 
         DWORD oldProtection = 0;
         if (!VirtualProtectEx(debuggee::hProcess,
-                              BaseAddress,
-                              RegionSize,
-                              NewProtection,
-                              &oldProtection))
+            BaseAddress,
+            RegionSize,
+            NewProtection,
+            &oldProtection))
             PluginLog("Warning: failed to restore section protection at %p, %8llX.\n",
-                       BaseAddress,
-                       RegionSize);
+            BaseAddress,
+            RegionSize);
     };
 
     std::vector<MEMORY_BASIC_INFORMATION> memRegions;
     if (!memory::util::GetPageInfo(PeHeader.optionalHeader->ImageBase,
-                                   PeHeader.optionalHeader->SizeOfImage,
-                                   memRegions))
+        PeHeader.optionalHeader->SizeOfImage,
+        memRegions))
     {
         PluginLog("Error: GetPageInfo failed while restoring page protection.\n");
         return;
@@ -127,44 +268,7 @@ void fixdump::current::RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeade
     restoreProtection(PVOID(PeHeader.optionalHeader->ImageBase), PE_HEADER_SIZE, PAGE_READONLY);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// util
-
-duint fixdump::util::GetOverwatchImageBase()
-{
-    return DbgValFromString("overwatch.exe:0");
-}
-
-// TODO: rewrite with ntqvm using IsValidPEHeader
-duint fixdump::util::GetSecretPEHeaderBaseAddress()
-{
-    MEMMAP memmap;
-    if (DbgMemMap(&memmap))
-    {
-        for (int i = 0; i < memmap.count; i++)
-        {
-            MEMPAGE* page = &memmap.page[i];
-            if (page->mbi.RegionSize == PE_HEADER_SIZE)
-            {
-                WORD dosMagic = 0;
-                if (memory::util::RemoteRead(duint(page->mbi.AllocationBase), PVOID(&dosMagic), sizeof(dosMagic)))
-                {
-                    if (dosMagic == IMAGE_DOS_SIGNATURE)
-                        return duint(page->mbi.AllocationBase);
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// archive
-
-namespace fixdump {
-namespace archive {
-
-duint BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
+SIZE_T BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
 {
     LPVOID newOverwatchRegion = VirtualAllocEx(debuggee::hProcess,
                                                NULL,
@@ -187,18 +291,18 @@ duint BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
         return 0;
     }
 
-    if (const duint secretPEHeaderAddress = fixdump::util::GetSecretPEHeaderBaseAddress())
+    if (const SIZE_T secretPEHeaderAddress = fixdump::util::GetSecretPEHeaderBaseAddress())
     {
         if (memory::util::RemoteRead(OverwatchPEHeader.remoteBaseAddress,
                                 transferBuffer,
                                 OverwatchPEHeader.optionalHeader->SizeOfImage) &&
             memory::util::RemoteRead(secretPEHeaderAddress, transferBuffer, PE_HEADER_SIZE) &&
-            memory::util::RemoteWrite(duint(newOverwatchRegion),
+            memory::util::RemoteWrite(SIZE_T(newOverwatchRegion),
                                  transferBuffer,
                                  OverwatchPEHeader.optionalHeader->SizeOfImage))
         {
             VirtualFree(transferBuffer, 0, MEM_RELEASE);
-            return duint(newOverwatchRegion);
+            return SIZE_T(newOverwatchRegion);
         }
         else
             PluginLog("BuildNewOverwatchRegion: Failed to write transfer buffer to Overwatch.exe.\n");
@@ -206,10 +310,7 @@ duint BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
     else
         PluginLog("BuildNewOverwatchRegion: GetSecretPEHeaderBaseAddress failed.\n");
 
-    VirtualFreeEx(debuggee::hProcess,
-                  newOverwatchRegion,
-                  OverwatchPEHeader.optionalHeader->SizeOfImage,
-                  MEM_RELEASE);
+    VirtualFreeEx(debuggee::hProcess,newOverwatchRegion, 0, MEM_RELEASE);
     VirtualFree(transferBuffer, 0, MEM_RELEASE);
     return 0;
 }
@@ -228,28 +329,28 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
         return false;
     }
 
-    const duint peb = DbgGetPebAddress(DbgGetProcessId());
+    const SIZE_T peb = DbgGetPebAddress(DbgGetProcessId());
     if (!peb)
     {
         PluginLog("NoticeMeScylla: DbgGetPebAddress failed.\n");
         return false;
     }
 
-    duint ldr = 0;
-    duint listHeadAddress = 0;
-    duint listHeadFlink = 0;
-    duint overwatchEntryAddress = 0;
+    SIZE_T ldr = 0;
+    SIZE_T listHeadAddress = 0;
+    SIZE_T listHeadFlink = 0;
+    SIZE_T overwatchEntryAddress = 0;
     LIST_ENTRY newEntry = {};
     LIST_ENTRY listHead = {};
     LDR_DATA_TABLE_ENTRY localModuleEntry = {};
 
     // get PEB_LDR_DATA.InMemoryOrderModuleList.
-    memory::util::RemoteRead(peb + FIELD_OFFSET(PEB, Ldr), &ldr, sizeof(duint));
+    memory::util::RemoteRead(peb + FIELD_OFFSET(PEB, Ldr), &ldr, sizeof(SIZE_T));
     listHeadAddress = ldr + FIELD_OFFSET(PEB_LDR_DATA, InMemoryOrderModuleList);
     memory::util::RemoteRead(listHeadAddress, &listHead, sizeof(LIST_ENTRY));
 
     // read Overwatch.exe's LDR_DATA_TABLE_ENTRY.
-    memory::util::RemoteRead(listHeadAddress, &listHeadFlink, sizeof(duint));
+    memory::util::RemoteRead(listHeadAddress, &listHeadFlink, sizeof(SIZE_T));
     overwatchEntryAddress = listHeadFlink - FIELD_OFFSET(LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
     memory::util::RemoteRead(overwatchEntryAddress, &localModuleEntry, sizeof(localModuleEntry));
 
@@ -261,12 +362,12 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
     newEntry.Blink = listHead.Blink;
 
     // PrevEntry->Flink = Entry;
-    const duint newEntryMemoryOrderLinks = duint(remoteEntryAddress) +
+    const SIZE_T newEntryMemoryOrderLinks = SIZE_T(remoteEntryAddress) +
                                            FIELD_OFFSET(LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
-    memory::util::RemoteWrite(duint(listHead.Blink), PVOID(&newEntryMemoryOrderLinks), sizeof(duint));
+    memory::util::RemoteWrite(SIZE_T(listHead.Blink), PVOID(&newEntryMemoryOrderLinks), sizeof(SIZE_T));
 
     // ListHead->Blink = Entry;
-    memory::util::RemoteWrite(listHeadAddress + sizeof(duint), &remoteEntryAddress, sizeof(duint));
+    memory::util::RemoteWrite(listHeadAddress + sizeof(SIZE_T), &remoteEntryAddress, sizeof(SIZE_T));
 
     localModuleEntry.DllBase = PVOID(NewRegionPEHeader.remoteBaseAddress);
     localModuleEntry.EntryPoint = PVOID(NewRegionPEHeader.remoteBaseAddress +
@@ -274,7 +375,7 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
     localModuleEntry.SizeOfImage = NewRegionPEHeader.optionalHeader->SizeOfImage;
     localModuleEntry.InMemoryOrderLinks = newEntry;
 
-    if (!memory::util::RemoteWrite(duint(remoteEntryAddress), &localModuleEntry, sizeof(localModuleEntry)))
+    if (!memory::util::RemoteWrite(SIZE_T(remoteEntryAddress), &localModuleEntry, sizeof(localModuleEntry)))
     {
         PluginLog("NoticeMeScylla: RemoteWrite failed for localModuleEntry, %d.\n", GetLastError());
         return false;
@@ -299,7 +400,7 @@ bool CombineTextPages(const std::vector<MEMORY_BASIC_INFORMATION>& TextPages,
     return true;
 }
 
-bool RemoveGarbageCode(duint BaseAddress, SIZE_T RegionSize)
+bool RemoveGarbageCode(SIZE_T BaseAddress, SIZE_T RegionSize)
 {
     bool status = false;
     DWORD oldprot;
@@ -321,7 +422,7 @@ bool RemoveGarbageCode(duint BaseAddress, SIZE_T RegionSize)
 bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
 {
     const PIMAGE_SECTION_HEADER textSection = GetPeSectionByName(PEHeader, ".text");
-    const duint textBase = PEHeader.remoteBaseAddress + textSection->VirtualAddress;
+    const SIZE_T textBase = PEHeader.remoteBaseAddress + textSection->VirtualAddress;
 
     std::vector<MEMORY_BASIC_INFORMATION> textPages;
     if (!memory::util::GetPageInfo(textBase, textSection->Misc.VirtualSize, textPages))
@@ -346,7 +447,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     // this function calls 'InitializeCriticalSection'.
     // this value changed in the 12.13.2016 patch: 0xB2161.
     // 2.14.2017 this value is dynamic.
-    const duint firstFunctionOffset = 0xBFF80;
+    const SIZE_T firstFunctionOffset = 0xBFF80;
     if (!RemoveGarbageCode(textBase, firstFunctionOffset))
     {
         PluginLog("FixTextSection:  failed to remove garbage code at %p (+%X)\n.",
@@ -360,7 +461,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     // fill the PAGE_NOACCESS pages with 0xCC.
     //for (auto page : suspectPages)
     //{
-    //    if (!RemoveGarbageCode(duint(page.BaseAddress), page.RegionSize))
+    //    if (!RemoveGarbageCode(SIZE_T(page.BaseAddress), page.RegionSize))
     //    {
     //        PluginLog("FixTextSection:  failed to remove garbage code for suspicious page at %p (%X)\n.",
     //                  textSectionBase,

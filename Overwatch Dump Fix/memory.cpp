@@ -127,23 +127,23 @@ bool memory::CombineAdjacentViews(const std::vector<MEMORY_BASIC_INFORMATION>& V
 ///////////////////////////////////////////////////////////////////////////////
 // util
 
-bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID SourceAddress, SIZE_T WriteSize)
+bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress, SIZE_T WriteSize)
 {
     SIZE_T numberOfBytesWritten = 0;
     ntapi::NTSTATUS status = ntapi::NtWriteVirtualMemory(debuggee::hProcess,
                                                          PVOID(BaseAddress),
-                                                         SourceAddress,
+                                                         DestinationAddress,
                                                          WriteSize,
                                                          &numberOfBytesWritten);
     return status == ntapi::STATUS_SUCCESS && numberOfBytesWritten == WriteSize;
 }
 
-bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID DestinationAddress, SIZE_T ReadSize)
+bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress, SIZE_T ReadSize)
 {
     SIZE_T numberOfBytesRead = 0;
     ntapi::NTSTATUS status = ntapi::NtReadVirtualMemory(debuggee::hProcess,
                                                         PVOID(BaseAddress),
-                                                        DestinationAddress,
+                                                        SourceAddress,
                                                         ReadSize,
                                                         &numberOfBytesRead);
     return status == ntapi::STATUS_SUCCESS && numberOfBytesRead == ReadSize;
