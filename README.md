@@ -28,7 +28,7 @@ Invoking the command with an argument that evaluates to true, e.g. 1, will enabl
 3. Click **IAT Autosearch** -> **Get Imports**.
 4. Click **Dump** to create a dump file.
 5. Click **Fix Dump** and select the dump file from (4) to reconstruct imports.
-6. The Scylla ouput view should say "Import Rebuild success [FILE PATH]".
+6. The Scylla output view should say "Import Rebuild success [FILE PATH]".
 7. Click **PE Rebuild** and select the fixed dump file.
 
 ### IDA Pro
