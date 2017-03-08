@@ -18,3 +18,11 @@ v2.1
     Local Types:     417
     Imports:         528
     Exports:          85
+
+v3.0
+    Names:         21629
+    Functions:    107855
+    Strings:      157731
+    Local Types:     424
+    Imports:         534
+    Exports:          86

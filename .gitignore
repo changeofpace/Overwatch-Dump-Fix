@@ -15,6 +15,7 @@
 *.suo
 *.tlog
 *.user
+*.zip
 
 .vs/*
 Debug/*

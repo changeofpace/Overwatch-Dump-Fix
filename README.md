@@ -6,10 +6,12 @@ This x64dbg plugin removes anti-dumping and obfuscation techniques from the popu
 
 This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
 
-## Release v2.1 (2.25.2017)
+## Release v3.0 (3.8.2017)
 
-- Simplified FixOverwatch() by only remapping the views representing .text and .rdata instead of every view.
-- Added verbose logging option.
+- Updated for new protection tech in Overwatch version 1.8.0.2.34978.
+- Import thunks are now spread across several memory regions. Each thunk has multiple blocks combined with relative jumps.
+- Now using capstone disassembler to unpack import thunks.
+- The .rdata view contains 0x1000 bytes of code (not sure if this is new). The plugin will separate this page from .rdata. IDA will automatically combine the two .text sections.
 
 ## Usage
 

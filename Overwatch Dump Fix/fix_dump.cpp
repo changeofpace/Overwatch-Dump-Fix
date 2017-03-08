@@ -18,60 +18,61 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     const SIZE_T imagebase = util::GetOverwatchImageBase();
     if (!imagebase)
     {
-        PluginLog("Error: failed to locate overwatch's imagebase.\n");
-        return false;
-    }
-    const SIZE_T secretHeaderBase = util::GetSecretPEHeaderBaseAddress();
-    if (!secretHeaderBase)
-    {
-        PluginLog("Error: failed to locate secret PE Header.\n");
-        return false;
-    }
-    REMOTE_PE_HEADER secretPeHeader;
-    if (!FillRemotePeHeader(debuggee::hProcess, secretHeaderBase, secretPeHeader))
-    {
-        PluginLog("Error: secret PE header at %p was invalid.\n", secretHeaderBase);
+        pluginLog("Error: failed to locate overwatch's imagebase.\n");
         return false;
     }
     
-    if (verbose)
+    pluginLog("Found Overwatch.exe's imagebase at %p.\n", imagebase);
+
+    const SIZE_T secretHeaderBase = util::GetSecretPEHeaderBaseAddress();
+    if (!secretHeaderBase)
     {
-        PluginLog("Found Overwatch.exe's imagebase at %p.\n", imagebase);
-        PluginLog("Found secret PE header at %p.\n", secretHeaderBase);
+        pluginLog("Error: failed to locate secret PE Header.\n");
+        return false;
+    }
+    
+    pluginLog("Found secret PE header at %p.\n", secretHeaderBase);
+
+    REMOTE_PE_HEADER secretPeHeader;
+    if (!FillRemotePeHeader(debuggee::hProcess, secretHeaderBase, secretPeHeader))
+    {
+        pluginLog("Error: secret PE header at %p was invalid.\n", secretHeaderBase);
+        return false;
     }
 
     std::vector<MEMORY_BASIC_INFORMATION> viewsPageInfo;
     if (!memory::util::GetPageInfo(imagebase, secretPeHeader.optionalHeader->SizeOfImage, viewsPageInfo))
     {
-        PluginLog("Error: GetPageInfo failed (secret pe header has an invalid image size?).\n");
+        pluginLog("Error: GetPageInfo failed (secret pe header has an invalid image size?).\n");
         return false;
     }
 
     // TODO: add prot to string from pe header utils
     if (verbose)
     {
-        PluginLog("Found %d views:\n", viewsPageInfo.size());
+        pluginLog("Found %d views:\n", viewsPageInfo.size());
         for (auto pageInfo : viewsPageInfo)
-            PluginLog("    %p  %-16llX  %X\n",
+            pluginLog("    %p  %-16llX  %X\n",
                       pageInfo.BaseAddress,
                       pageInfo.RegionSize,
                       pageInfo.Protect);
     }
 
-    // Future proofing. 
+    // """"Future proofing"""".
     // Check that there's at least two views.
     if (viewsPageInfo.size() < 2)
     {
-        PluginLog("Error: found unexpected number of views (%d). A patch has probably introduced new anti-dumping protection so this plugin needs to be updated.\n",
+        pluginLog("Error: found unexpected number of views (%d). A patch has probably introduced new anti-dumping protection so this plugin needs to be updated.\n",
                   viewsPageInfo.size());
         return false;
     }
-    // There are 9 views as of 2.25.2017 (.rdata is split into two views).
+    // 2.25.2017: There are 9 views (.rdata is split into two views).
     // The plugin should still work as long as .text and .rdata are the first
     // two views.
-    else if (viewsPageInfo.size() != 9)
+    // 3.6.2017: there are 11 views.
+    else if (viewsPageInfo.size() != 11)
     {
-        PluginLog("Warning: found unexpected number of views (%d).\n",
+        pluginLog("Warning: found unexpected number of views (%d).\n",
                   viewsPageInfo.size());
     }
 
@@ -83,13 +84,15 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     auto remapView = [](const MEMORY_BASIC_INFORMATION& ViewPageInfo)
     {
         if (verbose)
-            PluginLog("Remapping view at %p (%llX).\n",
+            pluginLog("Remapping view at %p (%llX) with %X protection.\n",
                       ViewPageInfo.BaseAddress,
-                      ViewPageInfo.RegionSize);
+                      ViewPageInfo.RegionSize,
+                      ViewPageInfo.Protect);
         if (!memory::RemapViewOfSection(SIZE_T(ViewPageInfo.BaseAddress), ViewPageInfo.RegionSize))
-            PluginLog("Error: failed to remap view at %p (%llX).\n",
+            pluginLog("Error: failed to remap view at %p (%llX) with %X protection.\n",
                       ViewPageInfo.BaseAddress,
-                      ViewPageInfo.RegionSize);
+                      ViewPageInfo.RegionSize,
+                      ViewPageInfo.Protect);
     };
 
     remapView(textView);
@@ -98,7 +101,7 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     // Fix the local PE Header for Overwatch.exe then apply it to the debuggee.
     if (!RestorePeHeader(secretPeHeader))
     {
-        PluginLog("Error: failed to write local PE Header to %p.\n", secretPeHeader.optionalHeader->ImageBase);
+        pluginLog("Error: failed to write local PE Header to %p.\n", secretPeHeader.optionalHeader->ImageBase);
         return false;
     }
 
@@ -106,13 +109,13 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     REMOTE_PE_HEADER restoredPeHeader;
     if (!FillRemotePeHeader(debuggee::hProcess, imagebase, restoredPeHeader))
     {
-        PluginLog("Error: restored PE header at %p was invalid.\n", imagebase);
+        pluginLog("Error: restored PE header at %p was invalid.\n", imagebase);
         return false;
     }
 
     if (!owimports::RebuildImports(restoredPeHeader))
     {
-        PluginLog("Error: failed to rebuild imports.\n");
+        pluginLog("Error: failed to rebuild imports.\n");
         return false;
     }
 
@@ -120,7 +123,7 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     auto restoreProtection = [](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
     {
         if (verbose)
-            PluginLog("Restoring protection at %p (%llX) to %X\n",
+            pluginLog("Restoring protection at %p (%llX) to %X\n",
                       BaseAddress,
                       RegionSize,
                       NewProtection);
@@ -131,14 +134,18 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
                               RegionSize,
                               NewProtection,
                               &oldProtection))
-            PluginLog("Warning: failed to restore view protection at %p (%llX).\n",
+            pluginLog("Warning: failed to restore view protection at %p (%llX).\n",
                       BaseAddress,
                       RegionSize);
     };
 
     restoreProtection(textView.BaseAddress, textView.RegionSize, PAGE_EXECUTE_READ);
     restoreProtection(rdataView.BaseAddress, rdataView.RegionSize, PAGE_READONLY);
-    restoreProtection(textView.BaseAddress, PE_HEADER_SIZE, PAGE_READONLY); // PE header
+    // 0x1000 bytes of .text spill over into .rdata. The IAT is still at .rdata + 0x1000.
+    // IDA will automatically combine the two .text sections into one.
+    restoreProtection(rdataView.BaseAddress, PAGE_SIZE, PAGE_EXECUTE_READ);
+    // Restore the PE header.
+    restoreProtection(textView.BaseAddress, PE_HEADER_SIZE, PAGE_READONLY);
 
     return true;
 }
@@ -160,59 +167,43 @@ SIZE_T fixdump::util::GetOverwatchImageBase()
     return DbgValFromString("overwatch.exe:0");
 }
 
-// TODO: rewrite with ntqvm using IsValidPEHeader
 SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
 {
-    MEMMAP memmap;
-    if (DbgMemMap(&memmap))
+    const SIZE_T imagebase = GetOverwatchImageBase();
+    for (SIZE_T ea = 0x10000; ea < imagebase; /**/)
     {
-        for (int i = 0; i < memmap.count; i++)
+        MEMORY_BASIC_INFORMATION mbi = {};
+        if (!VirtualQueryEx(debuggee::hProcess, PVOID(ea), &mbi, sizeof(mbi)))
         {
-            MEMPAGE* page = &memmap.page[i];
-            if (page->mbi.RegionSize == PE_HEADER_SIZE)
-            {
-                WORD dosMagic = 0;
-                if (memory::util::RemoteRead(SIZE_T(page->mbi.AllocationBase), PVOID(&dosMagic), sizeof(dosMagic)))
-                {
-                    if (dosMagic == IMAGE_DOS_SIGNATURE)
-                        return SIZE_T(page->mbi.AllocationBase);
-                }
-            }
+            pluginLog("Error: VirtualQueryEx failed for %p: .%d.\n", ea, GetLastError());
+            return 0;
         }
+
+        //pluginLog("base: %p  alloc: %p  size: %p  state: %8X  type: %8X  prot: %8X\n",
+        //          mbi.BaseAddress,
+        //          mbi.AllocationBase,
+        //          mbi.RegionSize,
+        //          mbi.State,
+        //          mbi.Type,
+        //          mbi.Protect);
+
+        if (mbi.State == MEM_COMMIT && !(mbi.Protect & PAGE_GUARD))
+        {
+            BYTE data[4096] = {};
+            if (!memory::util::RemoteRead(SIZE_T(mbi.BaseAddress), data, 4096))
+            {
+                pluginLog("RemoteRead failed for %p while scanning for secret pe header.\n", ea);
+                return 0;
+            }
+
+            if (IsValidPeHeader(SIZE_T(data)))
+                return SIZE_T(mbi.BaseAddress);
+        }
+
+        ea = SIZE_T(mbi.BaseAddress) + mbi.RegionSize;
     }
     return 0;
 }
-
-//// ported from injection code, crashes.
-//SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
-//{
-//    const SIZE_T imagebase = GetOverwatchImageBase();
-//    for (SIZE_T ea = 0; ea < imagebase; /**/)
-//    {
-//        MEMORY_BASIC_INFORMATION mbi = {};
-//        if (!VirtualQueryEx(debuggee::hProcess, PVOID(ea), &mbi, sizeof(mbi)))
-//        {
-//            PluginLog("Error: VirtualQueryEx failed for %p: .%d.\n",
-//                      ea,
-//                      GetLastError());
-//            return 0;
-//        }
-//
-//        if (mbi.State == MEM_COMMIT &&
-//            mbi.Type == MEM_PRIVATE &&
-//            IsValidPeHeader(SIZE_T(mbi.BaseAddress)))
-//                return SIZE_T(mbi.BaseAddress);
-//
-//        //PluginLog("base:  %p, size:  %p, state:  %8X, type:  %8X\n",
-//        //          mbi.BaseAddress,
-//        //          mbi.RegionSize,
-//        //          mbi.State,
-//        //          mbi.Type);
-//
-//        ea += mbi.RegionSize;
-//    }
-//    return 0;
-//}
 
 ///////////////////////////////////////////////////////////////////////////////
 // archive
@@ -224,7 +215,7 @@ void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
 {
     auto restoreProtection = [](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
     {
-        //PluginLog("restoring protection at %p, %8llX to %X\n",
+        //pluginLog("restoring protection at %p, %8llX to %X\n",
         //          BaseAddress,
         //          RegionSize,
         //          NewProtection);
@@ -235,7 +226,7 @@ void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
             RegionSize,
             NewProtection,
             &oldProtection))
-            PluginLog("Warning: failed to restore section protection at %p, %8llX.\n",
+            pluginLog("Warning: failed to restore section protection at %p, %8llX.\n",
             BaseAddress,
             RegionSize);
     };
@@ -245,13 +236,13 @@ void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
         PeHeader.optionalHeader->SizeOfImage,
         memRegions))
     {
-        PluginLog("Error: GetPageInfo failed while restoring page protection.\n");
+        pluginLog("Error: GetPageInfo failed while restoring page protection.\n");
         return;
     }
 
     if (memRegions.size() != 8)
     {
-        PluginLog("Error: Unexpected view layout, section protection will not be restored.\n");
+        pluginLog("Error: Unexpected view layout, section protection will not be restored.\n");
         return;
     }
 
@@ -277,7 +268,7 @@ SIZE_T BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
                                                PAGE_EXECUTE_READWRITE);
     if (!newOverwatchRegion)
     {
-        PluginLog("BuildNewOverwatchRegion: VirtualAllocEx failed %d.\n", GetLastError());
+        pluginLog("BuildNewOverwatchRegion: VirtualAllocEx failed %d.\n", GetLastError());
         return 0;
     }
 
@@ -287,7 +278,7 @@ SIZE_T BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
                                          PAGE_EXECUTE_READWRITE);
     if (!transferBuffer)
     {
-        PluginLog("BuildNewOverwatchRegion: VirtualAlloc failed %d.\n", GetLastError());
+        pluginLog("BuildNewOverwatchRegion: VirtualAlloc failed %d.\n", GetLastError());
         return 0;
     }
 
@@ -305,10 +296,10 @@ SIZE_T BuildNewOverwatchRegion(const REMOTE_PE_HEADER& OverwatchPEHeader)
             return SIZE_T(newOverwatchRegion);
         }
         else
-            PluginLog("BuildNewOverwatchRegion: Failed to write transfer buffer to Overwatch.exe.\n");
+            pluginLog("BuildNewOverwatchRegion: Failed to write transfer buffer to Overwatch.exe.\n");
     }
     else
-        PluginLog("BuildNewOverwatchRegion: GetSecretPEHeaderBaseAddress failed.\n");
+        pluginLog("BuildNewOverwatchRegion: GetSecretPEHeaderBaseAddress failed.\n");
 
     VirtualFreeEx(debuggee::hProcess,newOverwatchRegion, 0, MEM_RELEASE);
     VirtualFree(transferBuffer, 0, MEM_RELEASE);
@@ -324,7 +315,7 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
                                                PAGE_EXECUTE_READWRITE);
     if (!remoteEntryAddress)
     {
-        PluginLog("NoticeMeScylla: VirtualAllocEx failed for remoteEntryAddress, %d.\n",
+        pluginLog("NoticeMeScylla: VirtualAllocEx failed for remoteEntryAddress, %d.\n",
                   GetLastError());
         return false;
     }
@@ -332,7 +323,7 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
     const SIZE_T peb = DbgGetPebAddress(DbgGetProcessId());
     if (!peb)
     {
-        PluginLog("NoticeMeScylla: DbgGetPebAddress failed.\n");
+        pluginLog("NoticeMeScylla: DbgGetPebAddress failed.\n");
         return false;
     }
 
@@ -377,7 +368,7 @@ bool NoticeMeScylla(const REMOTE_PE_HEADER& NewRegionPEHeader)
 
     if (!memory::util::RemoteWrite(SIZE_T(remoteEntryAddress), &localModuleEntry, sizeof(localModuleEntry)))
     {
-        PluginLog("NoticeMeScylla: RemoteWrite failed for localModuleEntry, %d.\n", GetLastError());
+        pluginLog("NoticeMeScylla: RemoteWrite failed for localModuleEntry, %d.\n", GetLastError());
         return false;
     }
 
@@ -427,7 +418,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     std::vector<MEMORY_BASIC_INFORMATION> textPages;
     if (!memory::util::GetPageInfo(textBase, textSection->Misc.VirtualSize, textPages))
     {
-        PluginLog("FixTextSection:  failed to get text section pages using range %p - %p.\n",
+        pluginLog("FixTextSection:  failed to get text section pages using range %p - %p.\n",
                   textBase,
                   textBase + textSection->Misc.VirtualSize);
         return false;
@@ -437,7 +428,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     std::vector<MEMORY_BASIC_INFORMATION> suspectPages;
     if (!CombineTextPages(textPages, suspectPages))
     {
-        PluginLog("FixTextSection:  failed to combine text section pages.");
+        pluginLog("FixTextSection:  failed to combine text section pages.");
         return false;
     }
 
@@ -450,7 +441,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     const SIZE_T firstFunctionOffset = 0xBFF80;
     if (!RemoveGarbageCode(textBase, firstFunctionOffset))
     {
-        PluginLog("FixTextSection:  failed to remove garbage code at %p (+%X)\n.",
+        pluginLog("FixTextSection:  failed to remove garbage code at %p (+%X)\n.",
                   textBase,
                   firstFunctionOffset);
         return false;
@@ -463,7 +454,7 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
     //{
     //    if (!RemoveGarbageCode(SIZE_T(page.BaseAddress), page.RegionSize))
     //    {
-    //        PluginLog("FixTextSection:  failed to remove garbage code for suspicious page at %p (%X)\n.",
+    //        pluginLog("FixTextSection:  failed to remove garbage code for suspicious page at %p (%X)\n.",
     //                  textSectionBase,
     //                  firstFunctionOffset);
     //        return false;
