@@ -41,7 +41,7 @@ Invoking the command with an argument that evaluates to true, e.g. 1, will enabl
 
 ## Building
 
-A post-build event requires the **"X64DBG_PATH"** environment variable to be defined to x64dbg's installation directory.
+A post-build event requires the **"X96DBG_PATH"** environment variable to be defined to x64dbg's installation directory.
 
 ## Notes
 
