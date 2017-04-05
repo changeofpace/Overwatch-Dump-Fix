@@ -15,4 +15,9 @@ void pluginLog(const char* Format, ...);
 // TODO: redo this
 namespace debuggee {
 extern HANDLE hProcess;
+extern SIZE_T imageBase;
+extern DWORD imageSize;
 } // namespace debuggee
+
+
+

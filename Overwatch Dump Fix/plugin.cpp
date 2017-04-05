@@ -1,7 +1,6 @@
 #include "plugin.h"
 
 #include "fix_dump.h"
-#include "ow_imports.h"
 
 // Plugin exported command.
 static const char* cmdOverwatchDumpFix = "OverwatchDumpFix";
@@ -13,6 +12,8 @@ static const char* authorName = "changeofpace";
 static const char* githubSourceURL = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 
 HANDLE debuggee::hProcess = nullptr;
+SIZE_T debuggee::imageBase = 0;
+DWORD debuggee::imageSize = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Added Commands
@@ -43,6 +44,24 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 
 ///////////////////////////////////////////////////////////////////////////////
 // x64dbg
+
+PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
+{
+    static const char* overwatchModuleName = "Overwatch";
+    if (!strcmp(Info->modInfo->ModuleName, overwatchModuleName))
+    {
+        debuggee::hProcess = Info->fdProcessInfo->hProcess;
+        debuggee::imageBase = Info->modInfo->BaseOfImage;
+        debuggee::imageSize = Info->modInfo->ImageSize;
+     }
+}
+
+PLUG_EXPORT void CBEXITPROCESS(CBTYPE cbType, EXIT_PROCESS_DEBUG_INFO* Info)
+{
+    debuggee::hProcess = nullptr;
+    debuggee::imageBase = 0;
+    debuggee::imageSize = 0;
+}
 
 enum { PLUGIN_MENU_ABOUT };
 

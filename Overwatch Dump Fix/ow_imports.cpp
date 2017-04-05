@@ -101,6 +101,12 @@ bool owimports::ImportUnpacker::resolveBlock(const unsigned char * CodeBuf, SIZE
             }
             break;
         }
+        default:
+        {
+            pluginLog("Error: encountered unhandled instruction opcode while unpacking import at %p.\n", EA);
+            EA = 0;
+            return false;
+        }
         }
     }
     return false;

@@ -6,15 +6,12 @@
 #include "nt.h"
 #include "ow_imports.h"
 
-static bool verbose = false;
-
 ///////////////////////////////////////////////////////////////////////////////
 // current
 
+// TODO rework how verbose opt is consumed.
 bool fixdump::current::FixOverwatch(bool VerboseOutput)
 {
-    verbose = VerboseOutput;
-
     const SIZE_T imagebase = util::GetOverwatchImageBase();
     if (!imagebase)
     {
@@ -41,14 +38,14 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     }
 
     std::vector<MEMORY_BASIC_INFORMATION> viewsPageInfo;
-    if (!memory::util::GetPageInfo(imagebase, secretPeHeader.optionalHeader->SizeOfImage, viewsPageInfo))
+    if (!memory::util::GetPageInfo(imagebase, debuggee::imageSize, viewsPageInfo))
     {
         pluginLog("Error: GetPageInfo failed (secret pe header has an invalid image size?).\n");
         return false;
     }
 
     // TODO: add prot to string from pe header utils
-    if (verbose)
+    if (VerboseOutput)
     {
         pluginLog("Found %d views:\n", viewsPageInfo.size());
         for (auto pageInfo : viewsPageInfo)
@@ -81,9 +78,9 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     MEMORY_BASIC_INFORMATION textView = viewsPageInfo[0];
     MEMORY_BASIC_INFORMATION rdataView = viewsPageInfo[1];
 
-    auto remapView = [](const MEMORY_BASIC_INFORMATION& ViewPageInfo)
+    auto remapView = [&VerboseOutput](const MEMORY_BASIC_INFORMATION& ViewPageInfo)
     {
-        if (verbose)
+        if (VerboseOutput)
             pluginLog("Remapping view at %p (%llX) with %X protection.\n",
                       ViewPageInfo.BaseAddress,
                       ViewPageInfo.RegionSize,
@@ -120,9 +117,9 @@ bool fixdump::current::FixOverwatch(bool VerboseOutput)
     }
 
     // Restore .text .rdata's view page protection to the expected value.
-    auto restoreProtection = [](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
+    auto restoreProtection = [&VerboseOutput](PVOID BaseAddress, SIZE_T RegionSize, DWORD NewProtection)
     {
-        if (verbose)
+        if (VerboseOutput)
             pluginLog("Restoring protection at %p (%llX) to %X\n",
                       BaseAddress,
                       RegionSize,
@@ -164,7 +161,7 @@ bool fixdump::current::RestorePeHeader(REMOTE_PE_HEADER& PeHeader)
 
 SIZE_T fixdump::util::GetOverwatchImageBase()
 {
-    return DbgValFromString("overwatch.exe:0");
+    return debuggee::imageBase;
 }
 
 SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
@@ -196,8 +193,13 @@ SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
                 return 0;
             }
 
-            if (IsValidPeHeader(SIZE_T(data)))
-                return SIZE_T(mbi.BaseAddress);
+            REMOTE_PE_HEADER pe;
+            if (FillRemotePeHeader(debuggee::hProcess, SIZE_T(mbi.BaseAddress), pe))
+            {
+                pluginLog("Found vald PE header at %p.\n", mbi.BaseAddress);
+                if (pe.optionalHeader->SizeOfImage == debuggee::imageSize)
+                    return SIZE_T(mbi.BaseAddress);
+            }
         }
 
         ea = SIZE_T(mbi.BaseAddress) + mbi.RegionSize;
