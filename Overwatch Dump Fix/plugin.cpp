@@ -6,9 +6,9 @@
 // Plugin exported command.
 static const char* cmdOverwatchDumpFix = "OverwatchDumpFix";
 // Overwatch.exe version this plugin is developed for.
-static const char* overwatchTargetVersion = "1.8.0.2.34978";
+static const char* overwatchTargetVersion = "1.9.0.2.35524";
 
-static const char* realPluginVersion = "v3.0";
+static const char* realPluginVersion = "v3.0.1";
 static const char* authorName = "changeofpace";
 static const char* githubSourceURL = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 

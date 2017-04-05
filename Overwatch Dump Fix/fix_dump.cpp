@@ -189,8 +189,8 @@ SIZE_T fixdump::util::GetSecretPEHeaderBaseAddress()
 
         if (mbi.State == MEM_COMMIT && !(mbi.Protect & PAGE_GUARD))
         {
-            BYTE data[4096] = {};
-            if (!memory::util::RemoteRead(SIZE_T(mbi.BaseAddress), data, 4096))
+            BYTE data[PE_HEADER_SIZE] = {};
+            if (!memory::util::RemoteRead(SIZE_T(mbi.BaseAddress), data, PE_HEADER_SIZE))
             {
                 pluginLog("RemoteRead failed for %p while scanning for secret pe header.\n", ea);
                 return 0;

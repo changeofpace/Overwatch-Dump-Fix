@@ -36,25 +36,25 @@ bool owimports::ImportUnpacker::initialize()
 
 SIZE_T owimports::ImportUnpacker::resolve(size_t ThunkBase)
 {
-    SIZE_T import = 0;
     const SIZE_T regionBase = memory::util::AlignToAllocationGranularity(ThunkBase);
+    const SIZE_T blockSize = 0x60;
+    SIZE_T import = 0;
     SIZE_T ea = ThunkBase;
 
     for (;;)
     {
-        const SIZE_T blockSize = min(0x40, regionBase + PAGE_SIZE - ea);
-        unsigned char* codeBlock = (unsigned char*)malloc(blockSize);
-        
-        if (!memory::util::RemoteRead(ea, codeBlock, blockSize))
+        const SIZE_T readSize = min(blockSize, regionBase + PAGE_SIZE - ea);
+        unsigned char codeBlock[blockSize];
+        memset(codeBlock, 0, blockSize);
+
+        if (!memory::util::RemoteRead(ea, codeBlock, readSize))
         {
-            pluginLog("Error: failed to read 0x%llX bytes at %p.\n", blockSize, ea);
+            pluginLog("Error: failed to read 0x%llX bytes at %p.\n", readSize, ea);
             return 0;
         }
 
-        if (resolveBlock(codeBlock, blockSize, ea, import))
+        if (resolveBlock(codeBlock, readSize, ea, import))
             break;
-
-        free(codeBlock);
     }
 
     return import;
