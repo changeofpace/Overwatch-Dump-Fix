@@ -2,26 +2,20 @@
 
 ## Summary
 
-This x64dbg plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch. It is meant to be used with Scylla (built into x64dbg) to produce dump files for static analysis.
+This x64dbg plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch. It is meant to be used with Scylla (built into x64dbg) to produce process dump files for static analysis.
 
 This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
 
-## Release v3.0 (3.8.2017)
+## Release v4.0.0 (4.18.2017)
 
-- Updated for new protection tech in Overwatch version 1.8.0.2.34978.
-- Import thunks are now spread across several memory regions. Each thunk has multiple blocks combined with relative jumps.
-- Now using capstone disassembler to unpack import thunks.
-- The .rdata view contains 0x1000 bytes of code (not sure if this is new). The plugin will separate this page from .rdata. IDA will automatically combine the two .text sections.
+- Updated for new protection tech in Overwatch version 1.10.0.2.36031.
+- The 'secret' pe header is no longer stored in memory (or it's now obfuscated). The plugin now uses the pe header from the file on disk as a base when patching Overwatch's invalid pe header.
 
 ## Usage
 
 ### Added commands
 
-- **OverwatchDumpFix** [verbose]
-
-### Syntax
-
-Invoking the command with an argument that evaluates to true, e.g. 1, will enable verbose output.
+- **OverwatchDumpFix**
 
 ### x64dbg
 

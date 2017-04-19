@@ -3,7 +3,7 @@ IDA SETTINGS
     - Manual load (Yes to all prompts)
 ===============================================================================
 
-v2.0
+v2.0.0
     Names:         20958
     Functions:    106507
     Strings:      155523
@@ -11,7 +11,7 @@ v2.0
     Imports:         528
     Exports:          85
 
-v2.1
+v2.1.0
     Names:         20897
     Functions:    106507
     Strings:      156008
@@ -19,10 +19,22 @@ v2.1
     Imports:         528
     Exports:          85
 
-v3.0
+v3.0.0
     Names:         21629
     Functions:    107855
     Strings:      157731
     Local Types:     424
     Imports:         534
+    Exports:          86
+
+New IDA setting used:
+    - Run the 'Universal Unpacker Manual Reconstruct' plugin for the IAT.
+
+v4.0.0
+    Names:         18928
+    Functions:     87506
+    Strings:      176761
+    Segments:         14
+    Local Types:     364
+    Imports:         548
     Exports:          86

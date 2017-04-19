@@ -29,11 +29,19 @@ struct REMOTE_PE_HEADER : PE_HEADER
     BYTE rawData[PE_HEADER_SIZE];
 };
 
+struct BUFFERED_PE_HEADER : PE_HEADER
+{
+    BYTE raw_data[PE_HEADER_SIZE];
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // ctors
 
 bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader);
 bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress, REMOTE_PE_HEADER& PeHeader);
+bool FillBufferedPeHeader(const PBYTE PeBuffer,
+                          SIZE_T BufferSize,
+                          BUFFERED_PE_HEADER& PeHeader);
 
 ///////////////////////////////////////////////////////////////////////////////
 // utils

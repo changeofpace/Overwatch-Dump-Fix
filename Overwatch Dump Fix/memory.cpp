@@ -55,7 +55,7 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
     // Unmap the existing view(s).
     for (const auto view : replacedViewBases)
     {
-        status = ntapi::NtUnmapViewOfSection(debuggee::hProcess, PVOID(view));
+        status = ntapi::NtUnmapViewOfSection(debuggee.hProcess, PVOID(view));
         if (status != ntapi::STATUS_SUCCESS)
         {
             pluginLog("Error: NtUnmapViewOfSection failed for %p:  0x%08X\n",
@@ -70,7 +70,7 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
     LARGE_INTEGER sectionOffset = {};
     SIZE_T viewSize = 0;
     status = ntapi::NtMapViewOfSection(hSection,
-                                       debuggee::hProcess,
+                                       debuggee.hProcess,
                                        &viewBase,
                                        0,
                                        RegionSize,
@@ -100,13 +100,15 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
     return true;
 }
 
-bool memory::RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize)
-{
-    PVOID copybuf = VirtualAlloc(NULL, RegionSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-    if (!copybuf)
+bool memory::RemapViewOfSection(size_t base_address, size_t region_size) {
+    PVOID copy_buffer = VirtualAlloc(NULL,
+                                     region_size,
+                                     MEM_COMMIT | MEM_RESERVE,
+                                     PAGE_EXECUTE_READWRITE);
+    if (!copy_buffer)
         return false;
-    bool result = _RemapViewOfSection(BaseAddress, RegionSize, copybuf);
-    VirtualFree(copybuf, 0, MEM_RELEASE);
+    bool result = _RemapViewOfSection(base_address, region_size, copy_buffer);
+    VirtualFree(copy_buffer, 0, MEM_RELEASE);
     return result;
 }
 
@@ -139,7 +141,7 @@ bool memory::CombineAdjacentViews(const std::vector<MEMORY_BASIC_INFORMATION>& V
 bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress, SIZE_T WriteSize)
 {
     SIZE_T numberOfBytesWritten = 0;
-    ntapi::NTSTATUS status = ntapi::NtWriteVirtualMemory(debuggee::hProcess,
+    ntapi::NTSTATUS status = ntapi::NtWriteVirtualMemory(debuggee.hProcess,
                                                          PVOID(BaseAddress),
                                                          DestinationAddress,
                                                          WriteSize,
@@ -150,7 +152,7 @@ bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress, SIZ
 bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress, SIZE_T ReadSize)
 {
     SIZE_T numberOfBytesRead = 0;
-    ntapi::NTSTATUS status = ntapi::NtReadVirtualMemory(debuggee::hProcess,
+    ntapi::NTSTATUS status = ntapi::NtReadVirtualMemory(debuggee.hProcess,
                                                         PVOID(BaseAddress),
                                                         SourceAddress,
                                                         ReadSize,
@@ -158,20 +160,20 @@ bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress, SIZ
     return status == ntapi::STATUS_SUCCESS && numberOfBytesRead == ReadSize;
 }
 
-bool memory::util::GetPageInfo(SIZE_T BaseAddress,
-                               SIZE_T RegionSize,
-                               std::vector<MEMORY_BASIC_INFORMATION>& PageInfo)
-{
-    const SIZE_T endAddress = BaseAddress + RegionSize;
-    for (SIZE_T ea = BaseAddress; ea < endAddress;)
+bool memory::util::GetPageInfo(size_t base_address,
+                               size_t range_size,
+                               std::vector<MEMORY_BASIC_INFORMATION>& page_info) {
+    page_info.clear();
+    const size_t end_address = base_address + range_size;
+    for (size_t ea = base_address; ea < end_address; /**/)
     {
         MEMORY_BASIC_INFORMATION mbi = {};
-        if (!VirtualQueryEx(debuggee::hProcess, PVOID(ea), &mbi, sizeof(mbi)))
+        if (!VirtualQueryEx(debuggee.hProcess, PVOID(ea), &mbi, sizeof(mbi)))
             return false;
-        PageInfo.push_back(mbi);
+        page_info.push_back(mbi);
         ea += mbi.RegionSize;
     }
-    return true;
+    return page_info.size() > 0;
 }
 
 SIZE_T memory::util::RoundUpToAllocationGranularity(SIZE_T Size)

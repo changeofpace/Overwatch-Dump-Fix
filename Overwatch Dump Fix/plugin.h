@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "pluginmain.h"
 
 #define PLUGIN_NAME "Overwatch Dump Fix"
@@ -12,12 +14,12 @@ bool pluginStop();
 void pluginSetup();
 void pluginLog(const char* Format, ...);
 
-// TODO: redo this
-namespace debuggee {
-extern HANDLE hProcess;
-extern SIZE_T imageBase;
-extern DWORD imageSize;
-} // namespace debuggee
+struct Debuggee
+{
+    HANDLE hProcess;
+    size_t image_base;
+    DWORD image_size;
+    std::string image_name;
+};
 
-
-
+extern Debuggee debuggee;

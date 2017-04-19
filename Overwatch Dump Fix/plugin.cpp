@@ -2,37 +2,25 @@
 
 #include "fix_dump.h"
 
+Debuggee debuggee;
+
 // Plugin exported command.
-static const char* cmdOverwatchDumpFix = "OverwatchDumpFix";
+static const char cmdOverwatchDumpFix[] = "OverwatchDumpFix";
 // Overwatch.exe version this plugin is developed for.
-static const char* overwatchTargetVersion = "1.9.0.2.35524";
+static const char overwatchTargetVersion[] = "1.10.0.2.36031";
 
-static const char* realPluginVersion = "v3.0.1";
-static const char* authorName = "changeofpace";
-static const char* githubSourceURL = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
-
-HANDLE debuggee::hProcess = nullptr;
-SIZE_T debuggee::imageBase = 0;
-DWORD debuggee::imageSize = 0;
+static const char realPluginVersion[] = "v4.0.0";
+static const char authorName[] = "changeofpace";
+static const char githubSourceURL[] = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Added Commands
 
 static bool cbOverwatchDumpFix(int argc, char* argv[])
 {
-    debuggee::hProcess = DbgGetProcessHandle();
-    if (!debuggee::hProcess)
-    {
-        pluginLog("Error: DbgGetProcessHandle failed.\n");
-        return false;
-    }
-    const bool verbose = argc > 1;
-    pluginLog("Executing %s %s%s.\n",
-              PLUGIN_NAME,
-              realPluginVersion,
-              verbose ? " (verbose)" : "");
+    pluginLog("Executing %s %s.\n", PLUGIN_NAME, realPluginVersion);
     pluginLog("This plugin is updated for Overwatch version %s.\n", overwatchTargetVersion);
-    if (!fixdump::current::FixOverwatch(verbose))
+    if (!fixdump::current::FixOverwatch())
     {
         pluginLog("Failed to complete. Open an issue on github with the error message and verbose log output:\n");
         pluginLog("    %s\n", githubSourceURL);
@@ -47,20 +35,19 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 
 PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
 {
-    static const char* overwatchModuleName = "Overwatch";
+    static const char overwatchModuleName[] = "Overwatch";
     if (!strcmp(Info->modInfo->ModuleName, overwatchModuleName))
     {
-        debuggee::hProcess = Info->fdProcessInfo->hProcess;
-        debuggee::imageBase = Info->modInfo->BaseOfImage;
-        debuggee::imageSize = Info->modInfo->ImageSize;
-     }
+        debuggee = Debuggee{Info->fdProcessInfo->hProcess,
+                            Info->modInfo->BaseOfImage,
+                            Info->modInfo->ImageSize,
+                            std::string(Info->modInfo->ImageName)};
+    }
 }
 
 PLUG_EXPORT void CBEXITPROCESS(CBTYPE cbType, EXIT_PROCESS_DEBUG_INFO* Info)
 {
-    debuggee::hProcess = nullptr;
-    debuggee::imageBase = 0;
-    debuggee::imageSize = 0;
+    debuggee = {};
 }
 
 enum { PLUGIN_MENU_ABOUT };

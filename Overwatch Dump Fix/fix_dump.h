@@ -6,19 +6,21 @@
 #include "plugin.h"
 
 namespace fixdump {
-
 namespace current {
-bool FixOverwatch(bool VerboseOutput);
-// Overwatch.exe's PE Header is filled with garbage bytes in one of the TLS callbacks.
-bool RestorePeHeader(REMOTE_PE_HEADER& PeHeader);
+
+bool FixOverwatch();
+bool GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header);
+// Individual field fixups.
+void FixPeHeader(BUFFERED_PE_HEADER& pe_header);
+// Patch Overwatch.exe's PE Header.
+bool RestorePeHeader(BUFFERED_PE_HEADER& pe_header);
+// Split the pe header, .text, and .rdata regions by setting page protection.
+bool SplitSections(const REMOTE_PE_HEADER& pe_header);
+
 } // namespace current
 
-namespace util {
-SIZE_T GetOverwatchImageBase();
-SIZE_T GetSecretPEHeaderBaseAddress();
-} // namespace util
-
 namespace archive {
+SIZE_T GetSecretPEHeaderBaseAddress();
 void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader);
 // Overwatch's PE Header and .text section are combined into onememory region with 
 // PAGE_EXECUTE_READ protection. This function copies Overwatch's mapped region into a

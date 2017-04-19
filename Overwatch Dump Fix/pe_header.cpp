@@ -30,6 +30,15 @@ bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress, REMOTE_PE_HEAD
     return true;
 }
 
+bool FillBufferedPeHeader(const PBYTE PeBuffer,
+                          SIZE_T BufferSize,
+                          BUFFERED_PE_HEADER& PeHeader) {
+    if (!PeBuffer || BufferSize != PE_HEADER_SIZE)
+        return false;
+    memcpy(PeHeader.raw_data, PeBuffer, PE_HEADER_SIZE);
+    return FillPeHeader(SIZE_T(&PeHeader.raw_data), PeHeader);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // utils
 
