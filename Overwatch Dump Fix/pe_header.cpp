@@ -1,10 +1,17 @@
 #include "pe_header.h"
 
+BUFFERED_PE_HEADER::BUFFERED_PE_HEADER() {
+    raw_data = new BYTE[PE_HEADER_SIZE];
+}
+
+BUFFERED_PE_HEADER::~BUFFERED_PE_HEADER() {
+    delete[] raw_data;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // ctors
 
-bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader)
-{
+bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader) {
     if (!IsValidPeHeader(BaseAddress))
         return false;
     PeHeader.dosHeader = PIMAGE_DOS_HEADER(BaseAddress);
@@ -19,12 +26,14 @@ bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader)
     return true;
 }
 
-bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress, REMOTE_PE_HEADER& PeHeader)
-{
-    ZeroMemory(PeHeader.rawData, PE_HEADER_SIZE);
-    if (!ReadProcessMemory(ProcessHandle, PVOID(BaseAddress), PeHeader.rawData, PE_HEADER_SIZE, NULL))
+bool FillRemotePeHeader(HANDLE ProcessHandle,
+                        SIZE_T BaseAddress,
+                        REMOTE_PE_HEADER& PeHeader) {
+    ZeroMemory(PeHeader.raw_data, PE_HEADER_SIZE);
+    if (!ReadProcessMemory(ProcessHandle, PVOID(BaseAddress), PeHeader.raw_data,
+                           PE_HEADER_SIZE, nullptr))
         return false;
-    if (!FillPeHeader(SIZE_T(&PeHeader.rawData), PeHeader))
+    if (!FillPeHeader(SIZE_T(PeHeader.raw_data), PeHeader))
         return false;
     PeHeader.remoteBaseAddress = BaseAddress;
     return true;
@@ -36,7 +45,7 @@ bool FillBufferedPeHeader(const PBYTE PeBuffer,
     if (!PeBuffer || BufferSize != PE_HEADER_SIZE)
         return false;
     memcpy(PeHeader.raw_data, PeBuffer, PE_HEADER_SIZE);
-    return FillPeHeader(SIZE_T(&PeHeader.raw_data), PeHeader);
+    return FillPeHeader(SIZE_T(PeHeader.raw_data), PeHeader);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -54,7 +63,8 @@ bool IsValidPeHeader(SIZE_T BaseAddress)
     return true;
 }
 
-const PIMAGE_SECTION_HEADER GetPeSectionByName(const PE_HEADER& HeaderData, const char* SectionName)
+const PIMAGE_SECTION_HEADER GetPeSectionByName(const PE_HEADER& HeaderData,
+                                               const char* SectionName)
 {
     for (auto section : HeaderData.sectionHeaders)
         if (!strncmp(PCHAR(section->Name), SectionName, 8))
@@ -68,3 +78,4 @@ DWORD GetSizeOfImage(PVOID BaseAddress)
         return 0;
     return PIMAGE_NT_HEADERS(SIZE_T(BaseAddress) + PIMAGE_DOS_HEADER(BaseAddress)->e_lfanew)->OptionalHeader.SizeOfImage;
 }
+

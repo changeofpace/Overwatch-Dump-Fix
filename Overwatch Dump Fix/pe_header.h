@@ -23,16 +23,20 @@ struct PE_HEADER
     std::vector<PIMAGE_SECTION_HEADER> sectionHeaders;
 };
 
-struct REMOTE_PE_HEADER : PE_HEADER
-{
-    SIZE_T remoteBaseAddress;
-    BYTE rawData[PE_HEADER_SIZE];
-};
 
 struct BUFFERED_PE_HEADER : PE_HEADER
 {
-    BYTE raw_data[PE_HEADER_SIZE];
+    PBYTE raw_data;
+
+    BUFFERED_PE_HEADER();
+    ~BUFFERED_PE_HEADER();
 };
+
+struct REMOTE_PE_HEADER : BUFFERED_PE_HEADER
+{
+    SIZE_T remoteBaseAddress;
+};
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // ctors
