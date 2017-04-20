@@ -4,7 +4,7 @@
 
 This x64dbg plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch. It is meant to be used with Scylla (built into x64dbg) to produce process dump files for static analysis.
 
-This project is a continuous effort to reverse engineer Overwatch's protection as it is modified and improved in future patches.
+This project is for educational use only.
 
 ## Release v4.0.0 (4.18.2017)
 
