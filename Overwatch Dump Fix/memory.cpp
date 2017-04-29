@@ -14,16 +14,12 @@ static void SetSystemAllocationGranularity()
     systemAllocationGranularity = si.dwAllocationGranularity;
 }
 
-static bool _RemapViewOfSection(SIZE_T BaseAddress,
-                                SIZE_T RegionSize,
-                                PVOID CopyBuffer,
+static bool _RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize, PVOID CopyBuffer,
                                 std::vector<SIZE_T>* ReplacedViewBases = nullptr)
 {
     // Backup the view's content.
-    if (!memory::util::RemoteRead(BaseAddress, CopyBuffer, RegionSize))
-    {
-        pluginLog("Error: failed to backup view at %p: %d.\n",
-                  BaseAddress,
+    if (!memory::util::RemoteRead(BaseAddress, CopyBuffer, RegionSize)) {
+        pluginLog("Error: failed to backup view at %p: %d.\n", BaseAddress,
                   GetLastError());
         return false;
     }
@@ -39,12 +35,9 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
                                                     PAGE_EXECUTE_READWRITE,
                                                     SEC_COMMIT,
                                                     NULL);
-    if (status != ntapi::STATUS_SUCCESS)
-    {
+    if (status != ntapi::STATUS_SUCCESS){
         pluginLog("Error: NtCreateSection failed for %p, %llX:  0x%08X\n",
-                  BaseAddress,
-                  RegionSize,
-                  status);
+                  BaseAddress, RegionSize, status);
         return false;
     }
 
@@ -53,14 +46,11 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
                                                   std::vector<SIZE_T>{BaseAddress};
 
     // Unmap the existing view(s).
-    for (const auto view : replacedViewBases)
-    {
+    for (const auto view : replacedViewBases) {
         status = ntapi::NtUnmapViewOfSection(debuggee.hProcess, PVOID(view));
-        if (status != ntapi::STATUS_SUCCESS)
-        {
+        if (status != ntapi::STATUS_SUCCESS) {
             pluginLog("Error: NtUnmapViewOfSection failed for %p:  0x%08X\n",
-                      view,
-                      status);
+                      view, status);
             return false;
         }
     }
@@ -79,21 +69,16 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
                                        ntapi::ViewUnmap,
                                        0,
                                        PAGE_EXECUTE_READWRITE);
-    if (status != ntapi::STATUS_SUCCESS)
-    {
+    if (status != ntapi::STATUS_SUCCESS) {
         pluginLog("Error: NtMapViewOfSection failed for %p, %llX:  0x%08X\n",
-                  BaseAddress,
-                  RegionSize,
-                  status);
+                  BaseAddress, RegionSize, status);
         return false;
     }
 
     // Restore the view's content.
-    if (!memory::util::RemoteWrite(BaseAddress, CopyBuffer, RegionSize))
-    {
+    if (!memory::util::RemoteWrite(BaseAddress, CopyBuffer, RegionSize)) {
         pluginLog("Error: failed to restore view at %p: %d.\n",
-                  BaseAddress,
-                  GetLastError());
+                  BaseAddress, GetLastError());
         return false;
     }
 
@@ -101,9 +86,7 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress,
 }
 
 bool memory::RemapViewOfSection(size_t base_address, size_t region_size) {
-    PVOID copy_buffer = VirtualAlloc(NULL,
-                                     region_size,
-                                     MEM_COMMIT | MEM_RESERVE,
+    PVOID copy_buffer = VirtualAlloc(NULL, region_size, MEM_COMMIT | MEM_RESERVE,
                                      PAGE_EXECUTE_READWRITE);
     if (!copy_buffer)
         return false;
@@ -112,33 +95,34 @@ bool memory::RemapViewOfSection(size_t base_address, size_t region_size) {
     return result;
 }
 
-bool memory::CombineAdjacentViews(const std::vector<MEMORY_BASIC_INFORMATION>& Views)
-{
-    // Check for consecutive views.
-    SIZE_T combinedSize = 0;
-    std::vector<SIZE_T> replacedViewBases;
-    for (int i = 0; i < Views.size(); i++)
-    {
-        if (combinedSize && SIZE_T(Views[i - 1].BaseAddress) + combinedSize != SIZE_T(Views[i].BaseAddress))
-        {
-            pluginLog("Error: attempted to combine non-consecutive views.\n");
-            return false;
-        }
-        combinedSize += Views[i].RegionSize;
-        replacedViewBases.push_back(SIZE_T(Views[i].BaseAddress));
-    }
-    PVOID copybuf = VirtualAlloc(NULL, combinedSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-    if (!copybuf)
-        return false;
-    bool result = _RemapViewOfSection(SIZE_T(Views[0].BaseAddress), combinedSize, copybuf, &replacedViewBases);
-    VirtualFree(copybuf, 0, MEM_RELEASE);
-    return result;
-}
+//bool memory::CombineAdjacentViews(const std::vector<MEMORY_BASIC_INFORMATION>& Views)
+//{
+//    // Check for consecutive views.
+//    SIZE_T combinedSize = 0;
+//    std::vector<SIZE_T> replacedViewBases;
+//    for (int i = 0; i < Views.size(); i++) {
+//        if (combinedSize && SIZE_T(Views[i - 1].BaseAddress) + combinedSize != SIZE_T(Views[i].BaseAddress)) {
+//            pluginLog("Error: attempted to combine non-consecutive views.\n");
+//            return false;
+//        }
+//        combinedSize += Views[i].RegionSize;
+//        replacedViewBases.push_back(SIZE_T(Views[i].BaseAddress));
+//    }
+//    PVOID copybuf = VirtualAlloc(NULL, combinedSize, MEM_COMMIT | MEM_RESERVE,
+//                                 PAGE_EXECUTE_READWRITE);
+//    if (!copybuf)
+//        return false;
+//    bool result = _RemapViewOfSection(SIZE_T(Views[0].BaseAddress), combinedSize,
+//                                      copybuf, &replacedViewBases);
+//    VirtualFree(copybuf, 0, MEM_RELEASE);
+//    return result;
+//}
 
 ///////////////////////////////////////////////////////////////////////////////
 // util
 
-bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress, SIZE_T WriteSize)
+bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress,
+                               SIZE_T WriteSize)
 {
     SIZE_T numberOfBytesWritten = 0;
     ntapi::NTSTATUS status = ntapi::NtWriteVirtualMemory(debuggee.hProcess,
@@ -149,7 +133,8 @@ bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress, SIZ
     return status == ntapi::STATUS_SUCCESS && numberOfBytesWritten == WriteSize;
 }
 
-bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress, SIZE_T ReadSize)
+bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress,
+                              SIZE_T ReadSize)
 {
     SIZE_T numberOfBytesRead = 0;
     ntapi::NTSTATUS status = ntapi::NtReadVirtualMemory(debuggee.hProcess,
@@ -160,13 +145,12 @@ bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress, SIZ
     return status == ntapi::STATUS_SUCCESS && numberOfBytesRead == ReadSize;
 }
 
-bool memory::util::GetPageInfo(size_t base_address,
-                               size_t range_size,
-                               std::vector<MEMORY_BASIC_INFORMATION>& page_info) {
+bool memory::util::GetPageInfo(size_t base_address, size_t range_size,
+                               std::vector<MEMORY_BASIC_INFORMATION>& page_info)
+{
     page_info.clear();
     const size_t end_address = base_address + range_size;
-    for (size_t ea = base_address; ea < end_address; /**/)
-    {
+    for (size_t ea = base_address; ea < end_address; /**/) {
         MEMORY_BASIC_INFORMATION mbi = {};
         if (!VirtualQueryEx(debuggee.hProcess, PVOID(ea), &mbi, sizeof(mbi)))
             return false;
@@ -180,7 +164,8 @@ SIZE_T memory::util::RoundUpToAllocationGranularity(SIZE_T Size)
 {
     if (!systemAllocationGranularity)
         SetSystemAllocationGranularity();
-    return ((Size + systemAllocationGranularity - 1) & ~(systemAllocationGranularity - 1));
+    return ((Size + systemAllocationGranularity - 1) &
+            ~(systemAllocationGranularity - 1));
 }
 
 SIZE_T memory::util::AlignToAllocationGranularity(SIZE_T Address)

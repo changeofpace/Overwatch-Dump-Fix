@@ -6,10 +6,11 @@ This x64dbg plugin removes anti-dumping and obfuscation techniques from the popu
 
 This project is for educational use only.
 
-## Release v4.0.0 (4.18.2017)
+## Release v4.0.1 (4.29.2017)
 
-- Updated for new protection tech in Overwatch version 1.10.0.2.36031.
+- Updated for new protection tech in Overwatch version 1.10.1.2.36268.
 - The 'secret' pe header is no longer stored in memory (or it's now obfuscated). The plugin now uses the pe header from the file on disk as a base when patching Overwatch's invalid pe header.
+- Plugin now uses WinAPI instead of C++ file streams to get the pe header. This should fix a bug involving unicode paths.
 
 ## Usage
 

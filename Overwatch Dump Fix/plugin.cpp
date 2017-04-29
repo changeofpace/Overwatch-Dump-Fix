@@ -7,9 +7,9 @@ Debuggee debuggee;
 // Plugin exported command.
 static const char cmdOverwatchDumpFix[] = "OverwatchDumpFix";
 // Overwatch.exe version this plugin is developed for.
-static const char overwatchTargetVersion[] = "1.10.0.2.36031";
+static const char overwatchTargetVersion[] = "1.10.1.2.36268";
 
-static const char realPluginVersion[] = "v4.0.0";
+static const char realPluginVersion[] = "v4.0.1";
 static const char authorName[] = "changeofpace";
 static const char githubSourceURL[] = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 
@@ -20,9 +20,8 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 {
     pluginLog("Executing %s %s.\n", PLUGIN_NAME, realPluginVersion);
     pluginLog("This plugin is updated for Overwatch version %s.\n", overwatchTargetVersion);
-    if (!fixdump::current::FixOverwatch())
-    {
-        pluginLog("Failed to complete. Open an issue on github with the error message and verbose log output:\n");
+    if (!fixdump::current::FixOverwatch()) {
+        pluginLog("Failed to complete. Open an issue on github with the error message and log output:\n");
         pluginLog("    %s\n", githubSourceURL);
         return false;
     }
@@ -36,12 +35,11 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
 {
     static const char overwatchModuleName[] = "Overwatch";
-    if (!strcmp(Info->modInfo->ModuleName, overwatchModuleName))
-    {
+
+    if (!strcmp(Info->modInfo->ModuleName, overwatchModuleName)) {
         debuggee = Debuggee{Info->fdProcessInfo->hProcess,
                             Info->modInfo->BaseOfImage,
-                            Info->modInfo->ImageSize,
-                            std::string(Info->modInfo->ImageName)};
+                            Info->modInfo->ImageSize};
     }
 }
 
@@ -56,16 +54,13 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 {
     switch (info->hEntry)
     {
-    case PLUGIN_MENU_ABOUT:
-    {
+    case PLUGIN_MENU_ABOUT: {
         const int maxMessageBoxStringSize = 1024;
         char buf[maxMessageBoxStringSize] = "";
 
-        _snprintf_s(buf, maxMessageBoxStringSize,
-                    _TRUNCATE,
+        _snprintf_s(buf, maxMessageBoxStringSize, _TRUNCATE,
                     "Author:  %s.\n\nsource code:  %s.",
-                        authorName,
-                        githubSourceURL);
+                    authorName, githubSourceURL);
 
         MessageBoxA(hwndDlg, buf, "About", 0);
     }
@@ -75,8 +70,7 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 
 bool pluginInit(PLUG_INITSTRUCT* initStruct)
 {
-    if (!_plugin_registercommand(pluginHandle, cmdOverwatchDumpFix, cbOverwatchDumpFix, true))
-    {
+    if (!_plugin_registercommand(pluginHandle, cmdOverwatchDumpFix, cbOverwatchDumpFix, true)) {
         pluginLog("failed to register command %s.\n", cmdOverwatchDumpFix);
         return false;
     }

@@ -17,8 +17,7 @@ static SIZE_T GetImportAddressTable(const REMOTE_PE_HEADER& HeaderData)
 
 owimports::ImportUnpacker::~ImportUnpacker()
 {
-    if (hCapstone)
-    {
+    if (hCapstone) {
         cs_close(&hCapstone);
         cs_free(insn, 1);
     }
@@ -41,14 +40,12 @@ SIZE_T owimports::ImportUnpacker::resolve(size_t ThunkBase)
     SIZE_T import = 0;
     SIZE_T ea = ThunkBase;
 
-    for (;;)
-    {
+    for (;;) {
         const SIZE_T readSize = min(blockSize, regionBase + PAGE_SIZE - ea);
         unsigned char codeBlock[blockSize];
         memset(codeBlock, 0, blockSize);
 
-        if (!memory::util::RemoteRead(ea, codeBlock, readSize))
-        {
+        if (!memory::util::RemoteRead(ea, codeBlock, readSize)) {
             pluginLog("Error: failed to read 0x%llX bytes at %p.\n", readSize, ea);
             return 0;
         }
@@ -62,8 +59,7 @@ SIZE_T owimports::ImportUnpacker::resolve(size_t ThunkBase)
 
 bool owimports::ImportUnpacker::resolveBlock(const unsigned char * CodeBuf, SIZE_T CodeSize, SIZE_T & EA, SIZE_T & Import)
 {
-    while (cs_disasm_iter(hCapstone, &CodeBuf, &CodeSize, &EA, insn))
-    {
+    while (cs_disasm_iter(hCapstone, &CodeBuf, &CodeSize, &EA, insn)) {
         switch (insn->id)
         {
         case X86_INS_MOVABS:
@@ -90,12 +86,9 @@ bool owimports::ImportUnpacker::resolveBlock(const unsigned char * CodeBuf, SIZE
         // jmp [IMMEDIATE] = continue resolving the thunk at a new block base, inside the current region.
         case X86_INS_JMP:
         {
-            if (insn->detail->x86.operands[insn->detail->x86.op_count - 1].type == X86_OP_REG)
-            {
+            if (insn->detail->x86.operands[insn->detail->x86.op_count - 1].type == X86_OP_REG) {
                 return true;
-            }
-            else
-            {
+            } else {
                 EA = insn->detail->x86.operands[insn->detail->x86.op_count - 1].imm;
                 return false;
             }
@@ -115,8 +108,7 @@ bool owimports::ImportUnpacker::resolveBlock(const unsigned char * CodeBuf, SIZE
 bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
 {
     ImportUnpacker unpacker;
-    if (!unpacker.initialize())
-    {
+    if (!unpacker.initialize()) {
         pluginLog("Error: failed to initialize import unpacker.\n");
         return false;
     }
@@ -124,17 +116,17 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     // import thunks to packed code blocks start at .rdata's base address.
     const SIZE_T importAddressTable = GetImportAddressTable(HeaderData);
     SIZE_T iatThunkArray[iatMaxEntryCount] = {};
-    if (!memory::util::RemoteRead(importAddressTable, PVOID(iatThunkArray), iatMaxEntryCount * sizeof(SIZE_T)))
-    {
-        pluginLog("Error: failed to read import address table at %p.\n", importAddressTable);
+    if (!memory::util::RemoteRead(importAddressTable, PVOID(iatThunkArray),
+                                  iatMaxEntryCount * sizeof(SIZE_T))) {
+        pluginLog("Error: failed to read import address table at %p.\n",
+                  importAddressTable);
         return false;
     }
 
     int importCountDelta = 1;
     // walk the table, resolving all thunks to their real va destination.
     std::vector<SIZE_T> unpackedThunkArray;
-    for (int i = 0; iatThunkArray[i] > 0; i++)
-    {
+    for (int i = 0; iatThunkArray[i] > 0; i++) {
         for (/**/; iatThunkArray[i] > 0; i++)
             unpackedThunkArray.push_back(unpacker.resolve(iatThunkArray[i]));
         unpackedThunkArray.push_back(0);
@@ -147,9 +139,10 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     const DWORD iatSize = DWORD(unpackedThunkArray.size() * sizeof(SIZE_T));
 
     // replace packed thunks with resolved virtual addresses.
-    if (!memory::util::RemoteWrite(importAddressTable, PVOID(unpackedThunkArray.data()), iatSize))
-    {
-        pluginLog("Error: failed to write unpacked thunk array to %p.\n", importAddressTable);
+    if (!memory::util::RemoteWrite(importAddressTable,
+                                   PVOID(unpackedThunkArray.data()), iatSize)) {
+        pluginLog("Error: failed to write unpacked thunk array to %p.\n",
+                  importAddressTable);
         return false;
     }
 
@@ -160,15 +153,13 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     const DWORD iatRVA = DWORD(importAddressTable - HeaderData.remoteBaseAddress);
 
     if (!memory::util::RemoteWrite(iatDDAddress, PVOID(&iatRVA), sizeof(iatRVA)) ||
-        !memory::util::RemoteWrite(iatDDAddress + sizeof(DWORD), PVOID(&iatSize), sizeof(iatSize)))
-    {
+        !memory::util::RemoteWrite(iatDDAddress + sizeof(DWORD), PVOID(&iatSize), sizeof(iatSize))) {
         pluginLog("Error: failed to patch IAT data directory at %p.\n", iatDDAddress);
         return false;
     }
 
     pluginLog("Restored %d imports at %p.\n",
-              unpackedThunkArray.size() - importCountDelta,
-              importAddressTable);
+              unpackedThunkArray.size() - importCountDelta, importAddressTable);
 
     return true;
 }

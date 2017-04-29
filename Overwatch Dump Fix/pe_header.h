@@ -39,17 +39,18 @@ struct REMOTE_PE_HEADER : BUFFERED_PE_HEADER
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// ctors
+// fill ctors
 
 bool FillPeHeader(SIZE_T BaseAddress, PE_HEADER& PeHeader);
-bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress, REMOTE_PE_HEADER& PeHeader);
-bool FillBufferedPeHeader(const PBYTE PeBuffer,
-                          SIZE_T BufferSize,
+bool FillBufferedPeHeader(const PBYTE PeBuffer, SIZE_T BufferSize,
                           BUFFERED_PE_HEADER& PeHeader);
+bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress,
+                        REMOTE_PE_HEADER& PeHeader);
 
 ///////////////////////////////////////////////////////////////////////////////
 // utils
 
 bool IsValidPeHeader(SIZE_T BaseAddress);
-const PIMAGE_SECTION_HEADER GetPeSectionByName(const PE_HEADER& PeHeader, const char* SectionName);
 DWORD GetSizeOfImage(PVOID BaseAddress);
+PIMAGE_SECTION_HEADER GetPeSectionByName(const PE_HEADER& PeHeader,
+                                         const char* SectionName);

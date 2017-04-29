@@ -16,10 +16,13 @@ ntapi::NtCreateSection(
     _In_     ULONG              AllocationAttributes,
     _In_opt_ HANDLE             FileHandle)
 {
-    typedef NTSTATUS(NTAPI* NtCreateSection_t)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, PLARGE_INTEGER, ULONG, ULONG, HANDLE);
+    using NtCreateSection_t = NTSTATUS(NTAPI*)(PHANDLE, ACCESS_MASK,
+                                               POBJECT_ATTRIBUTES, PLARGE_INTEGER,
+                                               ULONG, ULONG, HANDLE);
     static NtCreateSection_t Fn = NtCreateSection_t(GetProcAddress(hmNtdll, "NtCreateSection"));
     if (Fn)
-        return Fn(SectionHandle, DesiredAccess, ObjectAttributes, MaximumSize, SectionPageProtection, AllocationAttributes, FileHandle);
+        return Fn(SectionHandle, DesiredAccess, ObjectAttributes, MaximumSize,
+                  SectionPageProtection, AllocationAttributes, FileHandle);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }
@@ -38,10 +41,15 @@ ntapi::NtMapViewOfSection(
     _In_        ULONG           AllocationType,
     _In_        ULONG           Win32Protect)
 {
-    typedef NTSTATUS(NTAPI* NtMapViewOfSection_t)(HANDLE, HANDLE, PVOID*, ULONG_PTR, SIZE_T, PLARGE_INTEGER, PSIZE_T, SECTION_INHERIT, ULONG, ULONG);
+    using NtMapViewOfSection_t = NTSTATUS (NTAPI*)(HANDLE, HANDLE, PVOID*,
+                                                   ULONG_PTR, SIZE_T,
+                                                   PLARGE_INTEGER, PSIZE_T,
+                                                   SECTION_INHERIT, ULONG, ULONG);
     static NtMapViewOfSection_t Fn = NtMapViewOfSection_t(GetProcAddress(hmNtdll, "NtMapViewOfSection"));
     if (Fn)
-        return Fn(SectionHandle, ProcessHandle, BaseAddress, ZeroBits, CommitSize, SectionOffset, ViewSize, InheritDisposition, AllocationType, Win32Protect);
+        return Fn(SectionHandle, ProcessHandle, BaseAddress, ZeroBits,
+                  CommitSize, SectionOffset, ViewSize, InheritDisposition,
+                  AllocationType, Win32Protect);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }
@@ -52,7 +60,7 @@ ntapi::NtUnmapViewOfSection(
     _In_     HANDLE ProcessHandle,
     _In_opt_ PVOID  BaseAddress)
 {
-    typedef NTSTATUS(NTAPI* NtUnmapViewOfSection_t)(HANDLE, PVOID);
+    using NtUnmapViewOfSection_t = NTSTATUS (NTAPI*)(HANDLE, PVOID);
     static NtUnmapViewOfSection_t Fn = NtUnmapViewOfSection_t(GetProcAddress(hmNtdll, "NtUnmapViewOfSection"));
     if (Fn)
         return Fn(ProcessHandle, BaseAddress);
@@ -72,10 +80,12 @@ ntapi::NtProtectVirtualMemory(
     IN      ULONG       NewAccessProtection,
     OUT     PULONG      OldAccessProtection)
 {
-    typedef NTSTATUS(NTAPI* NtProtectVirtualMemory_t)(HANDLE, PVOID, PSIZE_T, ULONG, PULONG);
+    using NtProtectVirtualMemory_t = NTSTATUS (NTAPI*)(HANDLE, PVOID, PSIZE_T,
+                                                       ULONG, PULONG);
     static NtProtectVirtualMemory_t Fn = NtProtectVirtualMemory_t(GetProcAddress(hmNtdll, "NtProtectVirtualMemory"));
     if (Fn)
-        return Fn(ProcessHandle, BaseAddress, NumberOfBytesToProtect, NewAccessProtection, OldAccessProtection);
+        return Fn(ProcessHandle, BaseAddress, NumberOfBytesToProtect,
+                  NewAccessProtection, OldAccessProtection);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }
@@ -90,10 +100,13 @@ ntapi::NtQueryVirtualMemory(
     _In_      SIZE_T                   MemoryInformationLength,
     _Out_opt_ PSIZE_T                  ReturnLength)
 {
-    typedef NTSTATUS(NTAPI* NtQueryVirtualMemory_t)(HANDLE, PVOID, MEMORY_INFORMATION_CLASS, PVOID, SIZE_T, PSIZE_T);
+    using NtQueryVirtualMemory_t = NTSTATUS (NTAPI*)(HANDLE, PVOID,
+                                                     MEMORY_INFORMATION_CLASS,
+                                                     PVOID, SIZE_T, PSIZE_T);
     static NtQueryVirtualMemory_t Fn = NtQueryVirtualMemory_t(GetProcAddress(hmNtdll, "NtQueryVirtualMemory"));
     if (Fn)
-        return Fn(ProcessHandle, BaseAddress, MemoryInformationClass, MemoryInformation, MemoryInformationLength, ReturnLength);
+        return Fn(ProcessHandle, BaseAddress, MemoryInformationClass,
+                  MemoryInformation, MemoryInformationLength, ReturnLength);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }
@@ -107,10 +120,12 @@ ntapi::NtReadVirtualMemory(
     IN  SIZE_T          NumberOfBytesToRead,
     OUT PSIZE_T         NumberOfBytesRead OPTIONAL)
 {
-    typedef NTSTATUS(NTAPI* NtReadVirtualMemory_t)(HANDLE, PVOID, PVOID, SIZE_T, PSIZE_T);
+    using NtReadVirtualMemory_t = NTSTATUS (NTAPI*)(HANDLE, PVOID, PVOID,
+                                                    SIZE_T, PSIZE_T);
     static NtReadVirtualMemory_t Fn = NtReadVirtualMemory_t(GetProcAddress(hmNtdll, "NtReadVirtualMemory"));
     if (Fn)
-        return Fn(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToRead, NumberOfBytesRead);
+        return Fn(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToRead,
+                  NumberOfBytesRead);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }
@@ -124,10 +139,12 @@ ntapi::NtWriteVirtualMemory(
     IN  SIZE_T          NumberOfBytesToWrite,
     OUT PSIZE_T         NumberOfBytesWritten OPTIONAL)
 {
-    typedef NTSTATUS(NTAPI* NtWriteVirtualMemory_t)(HANDLE, PVOID, PVOID, SIZE_T, PSIZE_T);
+    using NtWriteVirtualMemory_t = NTSTATUS (NTAPI*)(HANDLE, PVOID, PVOID,
+                                                     SIZE_T, PSIZE_T);
     static NtWriteVirtualMemory_t Fn = NtWriteVirtualMemory_t(GetProcAddress(hmNtdll, "NtWriteVirtualMemory"));
     if (Fn)
-        return Fn(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten);
+        return Fn(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite,
+                  NumberOfBytesWritten);
     SetLastError(ERROR_PROC_NOT_FOUND);
     return STATUS_PROCEDURE_NOT_FOUND;
 }

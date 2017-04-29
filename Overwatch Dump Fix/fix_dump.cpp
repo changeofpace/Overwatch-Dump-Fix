@@ -1,42 +1,40 @@
 #include "fix_dump.h"
 
-#include <iostream>
-#include <fstream>
+#include <Psapi.h>
+#include <Shlwapi.h>
+
 #include <vector>
 
 #include "memory.h"
 #include "nt.h"
 #include "ow_imports.h"
 
-bool fixdump::current::FixOverwatch() {
+bool fixdump::current::FixOverwatch()
+{
     BUFFERED_PE_HEADER pe_header;
     if (!GetOverwatchPeHeader(pe_header)) {
-        pluginLog("Error: failed to acquire Overwatch's PE header.\n");
+        pluginLog("Error: failed to get Overwatch's PE header.\n");
         return false;
     }
 
     std::vector<MEMORY_BASIC_INFORMATION> memory_views;
-    if (!memory::util::GetPageInfo(debuggee.image_base,
-                                   debuggee.image_size,
+    if (!memory::util::GetPageInfo(debuggee.image_base, debuggee.image_size,
                                    memory_views)) {
-        pluginLog("Error: failed to acquire memory views.\n");
+        pluginLog("Error: failed to get memory views.\n");
         return false;
     }
 
     pluginLog("Found %d views:\n", memory_views.size());
     for (auto view_info : memory_views) {
-        pluginLog("    %p  %16llX  %X\n",
-                  view_info.BaseAddress,
-                  view_info.RegionSize,
-                  view_info.Protect);
+        pluginLog("    %p  %16llX  %X\n", view_info.BaseAddress,
+                  view_info.RegionSize, view_info.Protect);
     }
 
     // Make overwatch's pe header, .text, and .rdata regions writable.
     if (!memory::RemapViewOfSection(size_t(memory_views[0].BaseAddress),
                                     memory_views[0].RegionSize)) {
         pluginLog("Error: failed to remap view at %p (%llX).\n",
-                  memory_views[0].BaseAddress,
-                  memory_views[0].RegionSize);
+                  memory_views[0].BaseAddress, memory_views[0].RegionSize);
         return false;
     }
 
@@ -66,47 +64,81 @@ bool fixdump::current::FixOverwatch() {
     return true;
 }
 
-bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header) {
-    std::ifstream in(debuggee.image_name, std::ios::binary);
-    if (!in.is_open())
+//bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header) {
+//    std::ifstream in(debuggee.image_name, std::ios::binary);
+//    if (!in.is_open())
+//        return false;
+//    unsigned char buffer[PE_HEADER_SIZE] = {};
+//    in.read((char*)buffer, PE_HEADER_SIZE);
+//    return in && FillBufferedPeHeader(buffer, PE_HEADER_SIZE, pe_header);
+//}
+
+bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header)
+{
+    wchar_t overwatch_path[MAX_MODULE_SIZE] = {};
+    if (!GetModuleFileNameExW(debuggee.hProcess, nullptr, overwatch_path,
+                              MAX_MODULE_SIZE)) {
+        pluginLog("Error: failed to get Overwatch's path.\n");
         return false;
-    unsigned char buffer[PE_HEADER_SIZE] = {};
-    in.read((char*)buffer, PE_HEADER_SIZE);
-    return in && FillBufferedPeHeader(buffer, PE_HEADER_SIZE, pe_header);
+    }
+
+    HANDLE overwatch_file = CreateFileW(overwatch_path, GENERIC_READ,
+                                        FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                        FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (overwatch_file == INVALID_HANDLE_VALUE) {
+        pluginLog("Error: failed to open Overwatch.exe while getting pe header.\n");
+        return false;
+    }
+
+    DWORD num_bytes_read = 0;
+    if (!ReadFile(overwatch_file, LPVOID(pe_header.raw_data), PE_HEADER_SIZE,
+                  &num_bytes_read, nullptr)) {
+        pluginLog("Error: failed to read Overwatch.exe.\n");
+        CloseHandle(overwatch_file);
+        return false;
+    }
+
+    // HACK 4.29.2017: pe header code needs a rewrite and so does this.
+    if (!FillPeHeader(SIZE_T(pe_header.raw_data), pe_header)) {
+        pluginLog("Error: failed to create pe header from read buffer.\n");
+        CloseHandle(overwatch_file);
+        return false;
+    }
+
+    CloseHandle(overwatch_file);
+    return true;
 }
 
-void fixdump::current::FixPeHeader(BUFFERED_PE_HEADER& pe_header) {
+void fixdump::current::FixPeHeader(BUFFERED_PE_HEADER& pe_header)
+{
     pe_header.optionalHeader->ImageBase = debuggee.image_base;
 }
 
-bool fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& pe_header) {
+bool fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& pe_header)
+{
     return memory::util::RemoteWrite(debuggee.image_base,
                                      PVOID(pe_header.raw_data),
                                      PE_HEADER_SIZE);
 }
 
-bool fixdump::current::SplitSections(const REMOTE_PE_HEADER & pe_header) {
-    auto SetPageProtection = [](size_t base_address, size_t region_size, DWORD new_protection) {
-        pluginLog("Restoring protection at %p (%llX) to %X.\n",
-                  base_address,
-                  region_size,
-                  new_protection);
+bool fixdump::current::SplitSections(const REMOTE_PE_HEADER & pe_header)
+{
+    auto SetPageProtection = [](size_t base_address, size_t region_size,
+                                DWORD new_protection)
+    {
+        pluginLog("Restoring protection at %p (%llX) to %X.\n", base_address,
+                  region_size, new_protection);
 
         DWORD old_protection = 0;
-        if (!VirtualProtectEx(debuggee.hProcess,
-                              PVOID(base_address),
-                              region_size,
-                              new_protection,
-                              &old_protection)) {
+        if (!VirtualProtectEx(debuggee.hProcess, PVOID(base_address),
+                              region_size, new_protection, &old_protection)) {
             pluginLog("Warning: failed to restore view protection at %p (%llX), error code %d.\n",
-                      base_address,
-                      region_size,
-                      GetLastError());
+                      base_address, region_size, GetLastError());
         }
     };
 
-    const PIMAGE_SECTION_HEADER text_section = GetPeSectionByName(pe_header, ".text");
-    const PIMAGE_SECTION_HEADER rdata_section = GetPeSectionByName(pe_header, ".rdata");
+    PIMAGE_SECTION_HEADER text_section = GetPeSectionByName(pe_header, ".text");
+    PIMAGE_SECTION_HEADER rdata_section = GetPeSectionByName(pe_header, ".rdata");
     if (!text_section || !rdata_section) {
         pluginLog("Error: failed to find .text or .rdata section header pointers.\n");
         return false;

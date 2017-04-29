@@ -19,7 +19,6 @@ struct Debuggee
     HANDLE hProcess;
     size_t image_base;
     DWORD image_size;
-    std::string image_name;
 };
 
 extern Debuggee debuggee;

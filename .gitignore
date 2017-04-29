@@ -1,9 +1,12 @@
 *.cache
 *.db
 *.exp
+*.gif
 *.iobj
 *.ipch
 *.ipdb
+*.jpeg
+*.jpg
 *.json
 *.lastbuildstate
 *.lib
@@ -14,6 +17,7 @@
 *.opensdf
 *.pch
 *.pdb
+*.png
 *.res
 *.sdf
 *.suo
@@ -22,9 +26,4 @@
 *.zip
 
 .vs/*
-Debug/*
-Release/*
-
 bin/*
-ipch/*
-logs/*
