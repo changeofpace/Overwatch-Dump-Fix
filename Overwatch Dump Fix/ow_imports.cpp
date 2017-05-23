@@ -126,7 +126,7 @@ bool owimports::RebuildImports(const REMOTE_PE_HEADER& HeaderData)
     int importCountDelta = 1;
     // walk the table, resolving all thunks to their real va destination.
     std::vector<SIZE_T> unpackedThunkArray;
-    for (int i = 0; iatThunkArray[i] > 0; i++) {
+    for (int i = 0; iatThunkArray[i] > 0 && iatThunkArray[i] < debuggee.imageBase; i++) {
         for (/**/; iatThunkArray[i] > 0; i++)
             unpackedThunkArray.push_back(unpacker.resolve(iatThunkArray[i]));
         unpackedThunkArray.push_back(0);

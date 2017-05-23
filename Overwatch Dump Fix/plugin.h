@@ -5,7 +5,7 @@
 #include "pluginmain.h"
 
 #define PLUGIN_NAME "Overwatch Dump Fix"
-#define PLUGIN_VERSION 4
+#define PLUGIN_VERSION 5
 
 #define plog(Format, ...) _plugin_logprintf(Format, __VA_ARGS__)
 
@@ -17,8 +17,8 @@ void pluginLog(const char* Format, ...);
 struct Debuggee
 {
     HANDLE hProcess;
-    size_t image_base;
-    DWORD image_size;
+    size_t imageBase;
+    DWORD imageSize;
 };
 
 extern Debuggee debuggee;

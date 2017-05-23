@@ -9,13 +9,13 @@ namespace fixdump {
 namespace current {
 
 bool FixOverwatch();
-bool GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header);
+bool GetOverwatchPeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Individual field fixups.
-void FixPeHeader(BUFFERED_PE_HEADER& pe_header);
+void FixPeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Patch Overwatch.exe's PE Header.
-bool RestorePeHeader(BUFFERED_PE_HEADER& pe_header);
+bool RestorePeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Split the pe header, .text, and .rdata regions by setting page protection.
-bool SplitSections(const REMOTE_PE_HEADER& pe_header);
+bool SplitSections(const REMOTE_PE_HEADER& PeHeader);
 
 } // namespace current
 

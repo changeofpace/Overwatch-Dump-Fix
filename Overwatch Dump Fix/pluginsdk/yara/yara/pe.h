@@ -508,7 +508,7 @@ typedef struct _RICH_SIGNATURE
 typedef struct _RICH_DATA
 {
     size_t len;
-    BYTE* raw_data;
+    BYTE* rawData;
     BYTE* clear_data;
 } RICH_DATA, *PRICH_DATA;
 

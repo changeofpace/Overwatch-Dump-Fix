@@ -2,12 +2,12 @@
 
 BUFFERED_PE_HEADER::BUFFERED_PE_HEADER()
 {
-    raw_data = new BYTE[PE_HEADER_SIZE];
+    rawData = new BYTE[PE_HEADER_SIZE];
 }
 
 BUFFERED_PE_HEADER::~BUFFERED_PE_HEADER()
 {
-    delete[] raw_data;
+    delete[] rawData;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,18 +35,18 @@ bool FillBufferedPeHeader(const PBYTE PeBuffer, SIZE_T BufferSize,
 {
     if (!PeBuffer || BufferSize != PE_HEADER_SIZE)
         return false;
-    memcpy(PeHeader.raw_data, PeBuffer, PE_HEADER_SIZE);
-    return FillPeHeader(SIZE_T(PeHeader.raw_data), PeHeader);
+    memcpy(PeHeader.rawData, PeBuffer, PE_HEADER_SIZE);
+    return FillPeHeader(SIZE_T(PeHeader.rawData), PeHeader);
 }
 
 bool FillRemotePeHeader(HANDLE ProcessHandle, SIZE_T BaseAddress,
                         REMOTE_PE_HEADER& PeHeader)
 {
-    ZeroMemory(PeHeader.raw_data, PE_HEADER_SIZE);
-    if (!ReadProcessMemory(ProcessHandle, PVOID(BaseAddress), PeHeader.raw_data,
+    ZeroMemory(PeHeader.rawData, PE_HEADER_SIZE);
+    if (!ReadProcessMemory(ProcessHandle, PVOID(BaseAddress), PeHeader.rawData,
                            PE_HEADER_SIZE, nullptr))
         return false;
-    if (!FillPeHeader(SIZE_T(PeHeader.raw_data), PeHeader))
+    if (!FillPeHeader(SIZE_T(PeHeader.rawData), PeHeader))
         return false;
     PeHeader.remoteBaseAddress = BaseAddress;
     return true;

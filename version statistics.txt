@@ -38,3 +38,12 @@ v4.0.0
     Local Types:     364
     Imports:         548
     Exports:          86
+
+v5.0.0
+    Names:         18587
+    Functions:     90366
+    Strings:      162939
+    Segments:         15
+    Local Types:     368
+    Imports:         555
+    Exports:          86

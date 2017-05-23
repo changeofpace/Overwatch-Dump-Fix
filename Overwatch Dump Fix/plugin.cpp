@@ -7,9 +7,9 @@ Debuggee debuggee;
 // Plugin exported command.
 static const char cmdOverwatchDumpFix[] = "OverwatchDumpFix";
 // Overwatch.exe version this plugin is developed for.
-static const char overwatchTargetVersion[] = "1.10.1.2.36268";
+static const char overwatchTargetVersion[] = "1.11.1.2.36859";
 
-static const char realPluginVersion[] = "v4.0.1";
+static const char realPluginVersion[] = "v5.0.0";
 static const char authorName[] = "changeofpace";
 static const char githubSourceURL[] = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 

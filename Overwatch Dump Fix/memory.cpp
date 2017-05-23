@@ -86,7 +86,9 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize, PVOID Cop
 }
 
 bool memory::RemapViewOfSection(size_t base_address, size_t region_size) {
-    PVOID copy_buffer = VirtualAlloc(NULL, region_size, MEM_COMMIT | MEM_RESERVE,
+    PVOID copy_buffer = VirtualAlloc(NULL,
+                                     region_size,
+                                     MEM_COMMIT | MEM_RESERVE,
                                      PAGE_EXECUTE_READWRITE);
     if (!copy_buffer)
         return false;

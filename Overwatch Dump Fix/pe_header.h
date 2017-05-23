@@ -26,7 +26,7 @@ struct PE_HEADER
 
 struct BUFFERED_PE_HEADER : PE_HEADER
 {
-    PBYTE raw_data;
+    PBYTE rawData;
 
     BUFFERED_PE_HEADER();
     ~BUFFERED_PE_HEADER();

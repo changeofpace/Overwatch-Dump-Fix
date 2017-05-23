@@ -11,52 +11,52 @@
 
 bool fixdump::current::FixOverwatch()
 {
-    BUFFERED_PE_HEADER pe_header;
-    if (!GetOverwatchPeHeader(pe_header)) {
+    BUFFERED_PE_HEADER peHeader;
+    if (!GetOverwatchPeHeader(peHeader)) {
         pluginLog("Error: failed to get Overwatch's PE header.\n");
         return false;
     }
 
-    std::vector<MEMORY_BASIC_INFORMATION> memory_views;
-    if (!memory::util::GetPageInfo(debuggee.image_base, debuggee.image_size,
-                                   memory_views)) {
+    std::vector<MEMORY_BASIC_INFORMATION> memoryViews;
+    if (!memory::util::GetPageInfo(debuggee.imageBase, debuggee.imageSize,
+                                   memoryViews)) {
         pluginLog("Error: failed to get memory views.\n");
         return false;
     }
 
-    pluginLog("Found %d views:\n", memory_views.size());
-    for (auto view_info : memory_views) {
+    pluginLog("Found %d views:\n", memoryViews.size());
+    for (auto view_info : memoryViews) {
         pluginLog("    %p  %16llX  %X\n", view_info.BaseAddress,
                   view_info.RegionSize, view_info.Protect);
     }
 
     // Make overwatch's pe header, .text, and .rdata regions writable.
-    if (!memory::RemapViewOfSection(size_t(memory_views[0].BaseAddress),
-                                    memory_views[0].RegionSize)) {
+    if (!memory::RemapViewOfSection(size_t(memoryViews[0].BaseAddress),
+                                    memoryViews[0].RegionSize)) {
         pluginLog("Error: failed to remap view at %p (%llX).\n",
-                  memory_views[0].BaseAddress, memory_views[0].RegionSize);
+                  memoryViews[0].BaseAddress, memoryViews[0].RegionSize);
         return false;
     }
 
-    FixPeHeader(pe_header);
+    FixPeHeader(peHeader);
 
-    if (!RestorePeHeader(pe_header)) {
-        pluginLog("Error: failed to write PE Header to %p.\n", debuggee.image_base);
+    if (!RestorePeHeader(peHeader)) {
+        pluginLog("Error: failed to write PE Header to %p.\n", debuggee.imageBase);
         return false;
     }
 
-    REMOTE_PE_HEADER restored_pe_header;
-    if (!FillRemotePeHeader(debuggee.hProcess, debuggee.image_base, restored_pe_header)) {
-        pluginLog("Error: restored PE header at %p was invalid.\n", debuggee.image_base);
+    REMOTE_PE_HEADER restoredPeHeader;
+    if (!FillRemotePeHeader(debuggee.hProcess, debuggee.imageBase, restoredPeHeader)) {
+        pluginLog("Error: restored PE header at %p was invalid.\n", debuggee.imageBase);
         return false;
     }
 
-    if (!owimports::RebuildImports(restored_pe_header)) {
+    if (!owimports::RebuildImports(restoredPeHeader)) {
         pluginLog("Error: failed to rebuild imports.\n");
         return false;
     }
 
-    if (!SplitSections(restored_pe_header)) {
+    if (!SplitSections(restoredPeHeader)) {
         pluginLog("Error: failed to split pe sections.\n");
         return false;
     }
@@ -64,91 +64,101 @@ bool fixdump::current::FixOverwatch()
     return true;
 }
 
-//bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header) {
+//bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& PeHeader) {
 //    std::ifstream in(debuggee.image_name, std::ios::binary);
 //    if (!in.is_open())
 //        return false;
 //    unsigned char buffer[PE_HEADER_SIZE] = {};
 //    in.read((char*)buffer, PE_HEADER_SIZE);
-//    return in && FillBufferedPeHeader(buffer, PE_HEADER_SIZE, pe_header);
+//    return in && FillBufferedPeHeader(buffer, PE_HEADER_SIZE, PeHeader);
 //}
 
-bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& pe_header)
+bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& PeHeader)
 {
-    wchar_t overwatch_path[MAX_MODULE_SIZE] = {};
-    if (!GetModuleFileNameExW(debuggee.hProcess, nullptr, overwatch_path,
+    wchar_t overwatchPath[MAX_MODULE_SIZE] = {};
+    if (!GetModuleFileNameExW(debuggee.hProcess,
+                              nullptr,
+                              overwatchPath,
                               MAX_MODULE_SIZE)) {
         pluginLog("Error: failed to get Overwatch's path.\n");
         return false;
     }
 
-    HANDLE overwatch_file = CreateFileW(overwatch_path, GENERIC_READ,
-                                        FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                                        FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (overwatch_file == INVALID_HANDLE_VALUE) {
+    HANDLE hOverwatchFile = CreateFileW(overwatchPath,
+                                        GENERIC_READ,
+                                        FILE_SHARE_READ,
+                                        nullptr,
+                                        OPEN_EXISTING,
+                                        FILE_ATTRIBUTE_NORMAL,
+                                        nullptr);
+    if (hOverwatchFile == INVALID_HANDLE_VALUE) {
         pluginLog("Error: failed to open Overwatch.exe while getting pe header.\n");
         return false;
     }
 
-    DWORD num_bytes_read = 0;
-    if (!ReadFile(overwatch_file, LPVOID(pe_header.raw_data), PE_HEADER_SIZE,
-                  &num_bytes_read, nullptr)) {
+    DWORD numBytesRead = 0;
+    if (!ReadFile(hOverwatchFile,
+                  LPVOID(PeHeader.rawData),
+                  PE_HEADER_SIZE,
+                  &numBytesRead,
+                  nullptr)) {
         pluginLog("Error: failed to read Overwatch.exe.\n");
-        CloseHandle(overwatch_file);
+        CloseHandle(hOverwatchFile);
         return false;
     }
 
     // HACK 4.29.2017: pe header code needs a rewrite and so does this.
-    if (!FillPeHeader(SIZE_T(pe_header.raw_data), pe_header)) {
+    if (!FillPeHeader(SIZE_T(PeHeader.rawData), PeHeader)) {
         pluginLog("Error: failed to create pe header from read buffer.\n");
-        CloseHandle(overwatch_file);
+        CloseHandle(hOverwatchFile);
         return false;
     }
 
-    CloseHandle(overwatch_file);
+    CloseHandle(hOverwatchFile);
     return true;
 }
 
-void fixdump::current::FixPeHeader(BUFFERED_PE_HEADER& pe_header)
+void fixdump::current::FixPeHeader(BUFFERED_PE_HEADER& PeHeader)
 {
-    pe_header.optionalHeader->ImageBase = debuggee.image_base;
+    PeHeader.optionalHeader->ImageBase = debuggee.imageBase;
 }
 
-bool fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& pe_header)
+bool fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& PeHeader)
 {
-    return memory::util::RemoteWrite(debuggee.image_base,
-                                     PVOID(pe_header.raw_data),
+    return memory::util::RemoteWrite(debuggee.imageBase,
+                                     PVOID(PeHeader.rawData),
                                      PE_HEADER_SIZE);
 }
 
-bool fixdump::current::SplitSections(const REMOTE_PE_HEADER & pe_header)
+bool fixdump::current::SplitSections(const REMOTE_PE_HEADER& PeHeader)
 {
-    auto SetPageProtection = [](size_t base_address, size_t region_size,
-                                DWORD new_protection)
+    auto SetPageProtection = [](size_t BaseAddress,
+                                size_t RegionSize,
+                                DWORD NewProtection)
     {
-        pluginLog("Restoring protection at %p (%llX) to %X.\n", base_address,
-                  region_size, new_protection);
+        pluginLog("Restoring protection at %p (%llX) to %X.\n", BaseAddress,
+                  RegionSize, NewProtection);
 
-        DWORD old_protection = 0;
-        if (!VirtualProtectEx(debuggee.hProcess, PVOID(base_address),
-                              region_size, new_protection, &old_protection)) {
+        DWORD oldProtection = 0;
+        if (!VirtualProtectEx(debuggee.hProcess, PVOID(BaseAddress),
+                              RegionSize, NewProtection, &oldProtection)) {
             pluginLog("Warning: failed to restore view protection at %p (%llX), error code %d.\n",
-                      base_address, region_size, GetLastError());
+                      BaseAddress, RegionSize, GetLastError());
         }
     };
 
-    PIMAGE_SECTION_HEADER text_section = GetPeSectionByName(pe_header, ".text");
-    PIMAGE_SECTION_HEADER rdata_section = GetPeSectionByName(pe_header, ".rdata");
-    if (!text_section || !rdata_section) {
+    PIMAGE_SECTION_HEADER textSection = GetPeSectionByName(PeHeader, ".text");
+    PIMAGE_SECTION_HEADER rdataSection = GetPeSectionByName(PeHeader, ".rdata");
+    if (!textSection || !rdataSection) {
         pluginLog("Error: failed to find .text or .rdata section header pointers.\n");
         return false;
     }
 
-    SetPageProtection(debuggee.image_base,
+    SetPageProtection(debuggee.imageBase,
                       PE_HEADER_SIZE,
                       PAGE_READONLY);
-    SetPageProtection(debuggee.image_base + text_section->VirtualAddress,
-                      text_section->Misc.VirtualSize,
+    SetPageProtection(debuggee.imageBase + textSection->VirtualAddress,
+                      textSection->Misc.VirtualSize,
                       PAGE_EXECUTE_READ);
     // BUG 4.18.2017: this fails with error code 298 ERROR_TOO_MANY_POSTS. I fixed this
     // issue with RPM / WPM by using custom wrappers instead of the plugin sdk
@@ -156,8 +166,8 @@ bool fixdump::current::SplitSections(const REMOTE_PE_HEADER & pe_header)
     // 487 ERROR_INVALID_ADDRESS. I have no idea why this happens or how to fix it.
     // Even if it fails .rdata should still be separated from .text as long as
     // the call above succeeds.
-    SetPageProtection(debuggee.image_base + rdata_section->VirtualAddress,
-                      rdata_section->Misc.VirtualSize,
+    SetPageProtection(debuggee.imageBase + rdataSection->VirtualAddress,
+                      rdataSection->Misc.VirtualSize,
                       PAGE_READONLY);
 
     return true;
@@ -170,7 +180,7 @@ namespace fixdump {
 namespace archive {
 
 SIZE_T GetSecretPEHeaderBaseAddress() {
-    const SIZE_T imagebase = debuggee.image_base;
+    const SIZE_T imagebase = debuggee.imageBase;
     for (SIZE_T ea = 0x10000; ea < imagebase; /**/)
     {
         MEMORY_BASIC_INFORMATION mbi = {};
@@ -201,7 +211,7 @@ SIZE_T GetSecretPEHeaderBaseAddress() {
             if (FillRemotePeHeader(debuggee.hProcess, SIZE_T(mbi.BaseAddress), pe))
             {
                 pluginLog("Found vald PE header at %p.\n", mbi.BaseAddress);
-                if (pe.optionalHeader->SizeOfImage == debuggee.image_size)
+                if (pe.optionalHeader->SizeOfImage == debuggee.imageSize)
                     return SIZE_T(mbi.BaseAddress);
             }
         }
@@ -222,13 +232,13 @@ void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader)
 
         DWORD oldProtection = 0;
         if (!VirtualProtectEx(debuggee.hProcess,
-            BaseAddress,
-            RegionSize,
-            NewProtection,
-            &oldProtection))
+                              BaseAddress,
+                              RegionSize,
+                              NewProtection,
+                              &oldProtection)) {
             pluginLog("Warning: failed to restore section protection at %p, %8llX.\n",
-            BaseAddress,
-            RegionSize);
+                      BaseAddress, RegionSize);
+        }
     };
 
     std::vector<MEMORY_BASIC_INFORMATION> memRegions;
