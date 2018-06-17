@@ -6,7 +6,12 @@ This x64dbg plugin removes anti-dumping and obfuscation techniques from the popu
 
 This project is for educational use only.
 
-## Release v5.0.1 (5.23.2017)
+## Release v5.0.2 (2018.06.17)
+
+- Removed post-build event.
+- Removed process name check in 'CBCREATEPROCESS' to allow the plugin to be executed for other games.
+
+## Release v5.0.1 (2017.05.23)
 
 - Updated for Overwatch version 1.11.1.2.36859.
 - The import address table is no longer terminated by two null pointers. The second null has been replaced with a pointer to a 'ret 0' instruction.
@@ -32,10 +37,6 @@ This project is for educational use only.
 8. Open the dump file in IDA. Check the **Manual load** and **Load resources** (optional) boxes.  Click **OK** / **Yes** for every prompt.
 9. Run the **Universal Unpacker Manual Reconstruct** plugin for the IAT to set imports to the correct color.
 10. Happy reversing :sunglasses:.
-
-## Building
-
-A post-build event requires the **"X96DBG_PATH"** environment variable to be defined to x64dbg's installation directory.
 
 ## Notes
 

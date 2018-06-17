@@ -9,7 +9,7 @@ static const char cmdOverwatchDumpFix[] = "OverwatchDumpFix";
 // Overwatch.exe version this plugin is developed for.
 static const char overwatchTargetVersion[] = "1.11.1.2.36859";
 
-static const char realPluginVersion[] = "v5.0.0";
+static const char realPluginVersion[] = "v5.0.2";
 static const char authorName[] = "changeofpace";
 static const char githubSourceURL[] = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 
@@ -34,13 +34,9 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 
 PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
 {
-    static const char overwatchModuleName[] = "Overwatch";
-
-    if (!strcmp(Info->modInfo->ModuleName, overwatchModuleName)) {
-        debuggee = Debuggee{Info->fdProcessInfo->hProcess,
-                            Info->modInfo->BaseOfImage,
-                            Info->modInfo->ImageSize};
-    }
+    debuggee = Debuggee{Info->fdProcessInfo->hProcess,
+        Info->modInfo->BaseOfImage,
+        Info->modInfo->ImageSize};
 }
 
 PLUG_EXPORT void CBEXITPROCESS(CBTYPE cbType, EXIT_PROCESS_DEBUG_INFO* Info)
