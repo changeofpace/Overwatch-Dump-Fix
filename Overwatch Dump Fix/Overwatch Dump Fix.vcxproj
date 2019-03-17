@@ -80,6 +80,11 @@
     <TargetExt>.dp64</TargetExt>
     <OutDir>$(SolutionDir)bin\x64\</OutDir>
     <TargetName>OverwatchDumpFix</TargetName>
+    <ExecutablePath>$(VC_ExecutablePath_x64);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(PATH)</ExecutablePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);</LibraryPath>
+    <LibraryWPath>$(WindowsSDK_MetadataPath);</LibraryWPath>
+    <ExcludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(VC_ExecutablePath_x64);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(VC_LibraryPath_x64);$(SystemRoot)</ExcludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetExt>.dp64</TargetExt>
@@ -123,20 +128,21 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>_USING_V110_SDK71_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4324;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;psapi.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ntdll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;psapi.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -160,39 +166,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="debug.cpp" />
+    <ClCompile Include="..\hde\hde32.cpp" />
+    <ClCompile Include="..\hde\hde64.cpp" />
     <ClCompile Include="fix_dump.cpp" />
+    <ClCompile Include="import_deobfuscation.cpp" />
     <ClCompile Include="memory.cpp" />
-    <ClCompile Include="ntapi.cpp" />
-    <ClCompile Include="ow_imports.cpp" />
     <ClCompile Include="pe_header.cpp" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="pluginmain.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="debug.h" />
+    <ClInclude Include="..\hde\hde.h" />
+    <ClInclude Include="..\hde\hde32.h" />
+    <ClInclude Include="..\hde\hde64.h" />
+    <ClInclude Include="..\hde\hde_stdint.h" />
+    <ClInclude Include="..\hde\table32.h" />
+    <ClInclude Include="..\hde\table64.h" />
     <ClInclude Include="fix_dump.h" />
+    <ClInclude Include="import_deobfuscation.h" />
     <ClInclude Include="memory.h" />
-    <ClInclude Include="nt.h" />
-    <ClInclude Include="ntapi.h" />
-    <ClInclude Include="ow_imports.h" />
+    <ClInclude Include="ntdll.h" />
     <ClInclude Include="pe_header.h" />
     <ClInclude Include="plugin.h" />
     <ClInclude Include="pluginmain.h" />
     <ClInclude Include="pluginsdk\bridgegraph.h" />
     <ClInclude Include="pluginsdk\bridgelist.h" />
     <ClInclude Include="pluginsdk\bridgemain.h" />
-    <ClInclude Include="pluginsdk\capstone\arm.h" />
-    <ClInclude Include="pluginsdk\capstone\arm64.h" />
-    <ClInclude Include="pluginsdk\capstone\capstone.h" />
-    <ClInclude Include="pluginsdk\capstone\m68k.h" />
-    <ClInclude Include="pluginsdk\capstone\mips.h" />
-    <ClInclude Include="pluginsdk\capstone\platform.h" />
-    <ClInclude Include="pluginsdk\capstone\ppc.h" />
-    <ClInclude Include="pluginsdk\capstone\sparc.h" />
-    <ClInclude Include="pluginsdk\capstone\systemz.h" />
-    <ClInclude Include="pluginsdk\capstone\x86.h" />
-    <ClInclude Include="pluginsdk\capstone\xcore.h" />
     <ClInclude Include="pluginsdk\dbghelp\dbghelp.h" />
     <ClInclude Include="pluginsdk\DeviceNameResolver\DeviceNameResolver.h" />
     <ClInclude Include="pluginsdk\jansson\jansson.h" />
@@ -258,18 +257,6 @@
     <ClInclude Include="pluginsdk\_scriptapi_symbol.h" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="pluginsdk\capstone\capstone_x64.lib">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </Library>
-    <Library Include="pluginsdk\capstone\capstone_x86.lib">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </Library>
     <Library Include="pluginsdk\DeviceNameResolver\DeviceNameResolver_x64.lib">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

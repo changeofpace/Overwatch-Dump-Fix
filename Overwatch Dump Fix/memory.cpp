@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "ntapi.h"
+#include "ntdll.h"
 #include "plugin.h"
 
 static DWORD systemAllocationGranularity = 0;
@@ -28,14 +28,15 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize, PVOID Cop
     HANDLE hSection = NULL;
     LARGE_INTEGER sectionMaxSize = {};
     sectionMaxSize.QuadPart = RegionSize;
-    ntapi::NTSTATUS status = ntapi::NtCreateSection(&hSection,
-                                                    SECTION_ALL_ACCESS,
-                                                    NULL,
-                                                    &sectionMaxSize,
-                                                    PAGE_EXECUTE_READWRITE,
-                                                    SEC_COMMIT,
-                                                    NULL);
-    if (status != ntapi::STATUS_SUCCESS){
+    NTSTATUS status = NtCreateSection(
+        &hSection,
+        SECTION_ALL_ACCESS,
+        NULL,
+        &sectionMaxSize,
+        PAGE_EXECUTE_READWRITE,
+        SEC_COMMIT,
+        NULL);
+    if (!NT_SUCCESS(status)) {
         pluginLog("Error: NtCreateSection failed for %p, %llX:  0x%08X\n",
                   BaseAddress, RegionSize, status);
         return false;
@@ -47,8 +48,8 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize, PVOID Cop
 
     // Unmap the existing view(s).
     for (const auto view : replacedViewBases) {
-        status = ntapi::NtUnmapViewOfSection(debuggee.hProcess, PVOID(view));
-        if (status != ntapi::STATUS_SUCCESS) {
+        status = NtUnmapViewOfSection(debuggee.hProcess, PVOID(view));
+        if (!NT_SUCCESS(status)) {
             pluginLog("Error: NtUnmapViewOfSection failed for %p:  0x%08X\n",
                       view, status);
             return false;
@@ -59,17 +60,17 @@ static bool _RemapViewOfSection(SIZE_T BaseAddress, SIZE_T RegionSize, PVOID Cop
     PVOID viewBase = PVOID(BaseAddress);
     LARGE_INTEGER sectionOffset = {};
     SIZE_T viewSize = 0;
-    status = ntapi::NtMapViewOfSection(hSection,
-                                       debuggee.hProcess,
-                                       &viewBase,
-                                       0,
-                                       RegionSize,
-                                       &sectionOffset,
-                                       &viewSize,
-                                       ntapi::ViewUnmap,
-                                       0,
-                                       PAGE_EXECUTE_READWRITE);
-    if (status != ntapi::STATUS_SUCCESS) {
+    status = NtMapViewOfSection(hSection,
+                                debuggee.hProcess,
+                                &viewBase,
+                                0,
+                                RegionSize,
+                                &sectionOffset,
+                                &viewSize,
+                                ViewUnmap,
+                                0,
+                                PAGE_EXECUTE_READWRITE);
+    if (!NT_SUCCESS(status)) {
         pluginLog("Error: NtMapViewOfSection failed for %p, %llX:  0x%08X\n",
                   BaseAddress, RegionSize, status);
         return false;
@@ -127,24 +128,26 @@ bool memory::util::RemoteWrite(SIZE_T BaseAddress, PVOID DestinationAddress,
                                SIZE_T WriteSize)
 {
     SIZE_T numberOfBytesWritten = 0;
-    ntapi::NTSTATUS status = ntapi::NtWriteVirtualMemory(debuggee.hProcess,
-                                                         PVOID(BaseAddress),
-                                                         DestinationAddress,
-                                                         WriteSize,
-                                                         &numberOfBytesWritten);
-    return status == ntapi::STATUS_SUCCESS && numberOfBytesWritten == WriteSize;
+    NTSTATUS status = NtWriteVirtualMemory(
+        debuggee.hProcess,
+        PVOID(BaseAddress),
+        DestinationAddress,
+        WriteSize,
+        &numberOfBytesWritten);
+    return status == STATUS_SUCCESS && numberOfBytesWritten == WriteSize;
 }
 
 bool memory::util::RemoteRead(SIZE_T BaseAddress, const PVOID SourceAddress,
                               SIZE_T ReadSize)
 {
     SIZE_T numberOfBytesRead = 0;
-    ntapi::NTSTATUS status = ntapi::NtReadVirtualMemory(debuggee.hProcess,
-                                                        PVOID(BaseAddress),
-                                                        SourceAddress,
-                                                        ReadSize,
-                                                        &numberOfBytesRead);
-    return status == ntapi::STATUS_SUCCESS && numberOfBytesRead == ReadSize;
+    NTSTATUS status = NtReadVirtualMemory(
+        debuggee.hProcess,
+        PVOID(BaseAddress),
+        SourceAddress,
+        ReadSize,
+        &numberOfBytesRead);
+    return status == STATUS_SUCCESS && numberOfBytesRead == ReadSize;
 }
 
 bool memory::util::GetPageInfo(size_t base_address, size_t range_size,

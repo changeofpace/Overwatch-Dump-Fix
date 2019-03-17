@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "memory.h"
-#include "nt.h"
-#include "ow_imports.h"
+#include "ntdll.h"
+#include "import_deobfuscation.h"
 
 bool fixdump::current::FixOverwatch()
 {
@@ -51,7 +51,11 @@ bool fixdump::current::FixOverwatch()
         return false;
     }
 
-    if (!owimports::RebuildImports(restoredPeHeader)) {
+    if (!IdfDeobfuscateImportAddressTable(
+            debuggee.hProcess,
+            debuggee.imageBase,
+            debuggee.imageSize,
+            restoredPeHeader)) {
         pluginLog("Error: failed to rebuild imports.\n");
         return false;
     }
@@ -63,6 +67,135 @@ bool fixdump::current::FixOverwatch()
 
     return true;
 }
+
+//
+// GetOverwatchImageSize
+//
+// This function acquires the image size of the debuggee via the debuggee's
+//  LDR_DATA_TABLE_ENTRY in the PEB.
+//
+// NOTE All addresses and pointer values refer to the virtual address space of
+//  the debuggee process.
+//
+BOOL fixdump::current::GetOverwatchImageSize(HANDLE hProcess, PULONG pcbImageSize)
+{
+    PVOID pPeb = NULL;
+    PVOID pPebLdr = NULL;
+    ULONG_PTR PebLdr = 0;
+    PVOID pInMemoryOrderModuleList = NULL;
+    LIST_ENTRY InMemoryOrderModuleList = {};
+    PLDR_DATA_TABLE_ENTRY pOverwatchLdrDataEntry = NULL;
+    LDR_DATA_TABLE_ENTRY OverwatchLdrDataEntry = {};
+    BOOL status = TRUE;
+
+    // Zero out parameters.
+    *pcbImageSize = 0;
+
+    //
+    // Get the address of the debuggee's PEB.
+    //
+    pPeb = (PVOID)DbgGetPebAddress(DbgGetProcessId());
+    if (!pPeb)
+    {
+        ERR_PRINT("DbgGetPebAddress failed.\n");
+        status = FALSE;
+        goto exit;
+    }
+
+    DBG_PRINT("pPeb:        %p\n", pPeb);
+
+    //
+    // Read the value of the remote PEB.Ldr field.
+    //
+    pPebLdr = (PVOID)((ULONG_PTR)pPeb + FIELD_OFFSET(PEB, LoaderData));
+
+    DBG_PRINT("pPebLdr:     %p\n", pPebLdr);
+
+    status = ReadProcessMemory(
+        hProcess,
+        pPebLdr,
+        &PebLdr,
+        sizeof(PebLdr),
+        NULL);
+    if (!status)
+    {
+        ERR_PRINT("ReadProcessMemory failed: %u (ldr)\n", GetLastError());
+        goto exit;
+    }
+
+    DBG_PRINT("PebLdr:      %p\n", PebLdr);
+
+    //
+    // Read the values of the remote PEB.Ldr.InMemoryOrderModuleList field.
+    //
+    pInMemoryOrderModuleList = (PVOID)(
+        PebLdr + FIELD_OFFSET(PEB_LDR_DATA, InMemoryOrderModuleList));
+
+    DBG_PRINT("pInMemoryOrderModuleList:            %p\n",
+        pInMemoryOrderModuleList);
+
+    status = ReadProcessMemory(
+        hProcess,
+        pInMemoryOrderModuleList,
+        &InMemoryOrderModuleList,
+        sizeof(InMemoryOrderModuleList),
+        NULL);
+    if (!status)
+    {
+        ERR_PRINT("ReadProcessMemory failed: %u (InMemoryOrderModuleList)\n",
+            GetLastError());
+        goto exit;
+    }
+
+    DBG_PRINT("InMemoryOrderModuleList.Flink:       %p\n",
+        InMemoryOrderModuleList.Flink);
+
+    //
+    // Read the LDR_DATA_TABLE_ENTRY for the debuggee process.
+    //
+    pOverwatchLdrDataEntry = (PLDR_DATA_TABLE_ENTRY)(
+        (ULONG_PTR)InMemoryOrderModuleList.Flink -
+        FIELD_OFFSET(LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks));
+
+    DBG_PRINT("pOverwatchLdrDataEntry:              %p\n", PebLdr);
+
+    status = ReadProcessMemory(
+        hProcess,
+        pOverwatchLdrDataEntry,
+        &OverwatchLdrDataEntry,
+        sizeof(OverwatchLdrDataEntry),
+        NULL);
+    if (!status)
+    {
+        ERR_PRINT("ReadProcessMemory failed: %u (entry)\n", GetLastError());
+        goto exit;
+    }
+
+    //
+    // TODO Validate LDR_DATA_TABLE_ENTRY.FullDllName against
+    //  PEB.ProcessParameters.ImagePathName.
+    //
+
+    //
+    // Verify that the image size from the ldr entry is not zero.
+    //
+    if (!OverwatchLdrDataEntry.SizeOfImage)
+    {
+        ERR_PRINT("LdrDataEntry.SizeOfImage was zero.\n");
+        status = FALSE;
+        goto exit;
+    }
+
+    DBG_PRINT("OverwatchLdrDataEntry.SizeOfImage:   0x%IX\n",
+        OverwatchLdrDataEntry.SizeOfImage);
+
+    // Set out parameters.
+    *pcbImageSize = OverwatchLdrDataEntry.SizeOfImage;
+
+exit:
+    return status;
+}
+
 
 //bool fixdump::current::GetOverwatchPeHeader(BUFFERED_PE_HEADER& PeHeader) {
 //    std::ifstream in(debuggee.image_name, std::ios::binary);
@@ -123,7 +256,7 @@ void fixdump::current::FixPeHeader(BUFFERED_PE_HEADER& PeHeader)
     PeHeader.optionalHeader->ImageBase = debuggee.imageBase;
 }
 
-bool fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& PeHeader)
+BOOL fixdump::current::RestorePeHeader(BUFFERED_PE_HEADER& PeHeader)
 {
     return memory::util::RemoteWrite(debuggee.imageBase,
                                      PVOID(PeHeader.rawData),
@@ -176,6 +309,7 @@ bool fixdump::current::SplitSections(const REMOTE_PE_HEADER& PeHeader)
 ///////////////////////////////////////////////////////////////////////////////
 // archive
 
+#if 0
 namespace fixdump {
 namespace archive {
 
@@ -476,3 +610,4 @@ bool FixTextSection(const REMOTE_PE_HEADER& PEHeader)
 
 } // namespace archive
 } // namespace fixdump
+#endif

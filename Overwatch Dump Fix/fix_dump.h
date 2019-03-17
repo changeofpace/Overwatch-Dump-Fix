@@ -9,16 +9,18 @@ namespace fixdump {
 namespace current {
 
 bool FixOverwatch();
+BOOL GetOverwatchImageSize(HANDLE hProcess, PULONG pcbImageSize);
 bool GetOverwatchPeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Individual field fixups.
 void FixPeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Patch Overwatch.exe's PE Header.
-bool RestorePeHeader(BUFFERED_PE_HEADER& PeHeader);
+BOOL RestorePeHeader(BUFFERED_PE_HEADER& PeHeader);
 // Split the pe header, .text, and .rdata regions by setting page protection.
 bool SplitSections(const REMOTE_PE_HEADER& PeHeader);
 
 } // namespace current
 
+#if 0
 namespace archive {
 SIZE_T GetSecretPEHeaderBaseAddress();
 void RestoreSectionProtections(const REMOTE_PE_HEADER& PeHeader);
@@ -47,6 +49,6 @@ bool RemoveGarbageCode(SIZE_T BaseAddress, SIZE_T RegionSize);
 // The noaccess pages are filled with 0xCC bytes (DISABLED).
 bool FixTextSection(const REMOTE_PE_HEADER& PeHeader);
 } // namespace archive
+#endif
 
 } // namespace fixdump
-
