@@ -27,6 +27,14 @@ This project is for educational use only.
 
 - **OverwatchDumpFix**
 
+### Scylla
+
+Users must enable the 'Use advanced IAT search' setting in the 'Misc' section of Scylla options.
+
+1. Open **Scylla** in x64dbg's **Plugins** menu.
+2. Open the options dialog from the **Misc** menu.
+3. Enable the 'Use advanced IAT search' setting in the bottom right corner.
+
 ### x64dbg
 
 1. Attach x64dbg to Overwatch.exe then execute the **OverwatchDumpFix** command.
