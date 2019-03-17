@@ -33,7 +33,7 @@ This project is for educational use only.
 2. Open **Scylla** in x64dbg's **Plugins** menu then select Overwatch.exe in the "Attach to an active process" drop-down list.
 3. Click **IAT Autosearch**.
 4. A dialog box will inform the user that the IAT search advanced result does not match the normal search result. Click **Yes**.
-5. Verify that the address of the **VA* field in the **IAT Info** region matches the address of the IAT found in the log tab.
+5. Verify that the address of the **VA** field in the **IAT Info** region matches the address of the IAT found in the log tab.
 6. Click **Get Imports**.
 7. Click **Dump** to create a dump file.
 8. Click **Fix Dump** and select the dump file from (7) to reconstruct imports.
