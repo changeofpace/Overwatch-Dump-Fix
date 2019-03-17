@@ -6,6 +6,11 @@ This x64dbg plugin removes anti-dumping and obfuscation techniques from the popu
 
 This project is for educational use only.
 
+## Release v5.1.0 (2019.03.16)
+
+- Replaced capstone disassembler with hde.
+- Updated instructions to reflect requirement of the Scylla 'Use advanced IAT search' setting.
+
 ## Release v5.0.2 (2018.06.17)
 
 - Removed post-build event.
@@ -26,11 +31,14 @@ This project is for educational use only.
 
 1. Attach x64dbg to Overwatch.exe then execute the **OverwatchDumpFix** command.
 2. Open **Scylla** in x64dbg's **Plugins** menu then select Overwatch.exe in the "Attach to an active process" drop-down list.
-3. Click **IAT Autosearch** -> **Get Imports**.
-4. Click **Dump** to create a dump file.
-5. Click **Fix Dump** and select the dump file from (4) to reconstruct imports.
-6. The Scylla output view should say "Import Rebuild success [FILE PATH]".
-7. Click **PE Rebuild** and select the fixed dump file.
+3. Click **IAT Autosearch**.
+4. A dialog box will inform the user that the IAT search advanced result does not match the normal search result. Click **Yes**.
+5. Verify that the address of the **VA* field in the **IAT Info** region matches the address of the IAT found in the log tab.
+6. Click **Get Imports**.
+7. Click **Dump** to create a dump file.
+8. Click **Fix Dump** and select the dump file from (7) to reconstruct imports.
+9. The Scylla output view should say "Import Rebuild success [FILE PATH]".
+10. Click **PE Rebuild** and select the fixed dump file.
 
 ### IDA Pro
 
