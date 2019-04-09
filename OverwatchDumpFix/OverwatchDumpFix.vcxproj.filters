@@ -281,6 +281,9 @@
     <ClInclude Include="..\hde\hde.h">
       <Filter>hde</Filter>
     </ClInclude>
+    <ClInclude Include="anti_debug_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="pluginsdk\x32bridge.lib">
@@ -356,6 +359,9 @@
     </ClCompile>
     <ClCompile Include="..\hde\hde64.cpp">
       <Filter>hde</Filter>
+    </ClCompile>
+    <ClCompile Include="anti_debug_util.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

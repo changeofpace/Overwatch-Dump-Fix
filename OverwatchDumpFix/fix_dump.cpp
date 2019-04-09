@@ -25,9 +25,14 @@ bool fixdump::current::FixOverwatch()
     }
 
     pluginLog("Found %d views:\n", memoryViews.size());
-    for (auto view_info : memoryViews) {
-        pluginLog("    %p  %16llX  %X\n", view_info.BaseAddress,
-                  view_info.RegionSize, view_info.Protect);
+    pluginLog("             Address                Size  Protection\n");
+
+    for (auto view_info : memoryViews)
+    {
+        pluginLog("    %p    %16llX    %8X\n",
+            view_info.BaseAddress,
+            view_info.RegionSize,
+            view_info.Protect);
     }
 
     // Make overwatch's pe header, .text, and .rdata regions writable.

@@ -2,6 +2,9 @@
 
 #include <Windows.h>
 
+//=============================================================================
+// Constants and Macros
+//=============================================================================
 typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
@@ -16,6 +19,18 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 #define ALIGN_DOWN_BY(length, alignment) \
     ((ULONG_PTR)(length) & ~(alignment - 1))
 
+//=============================================================================
+// Enumerations
+//=============================================================================
+typedef enum _SECTION_INHERIT
+{
+    ViewShare = 1,
+    ViewUnmap = 2
+} SECTION_INHERIT;
+
+//=============================================================================
+// Types
+//=============================================================================
 typedef struct _UNICODE_STRING
 {
     USHORT Length;
@@ -78,7 +93,7 @@ typedef struct _PEB {
     PVOID PostProcessInitRoutine;
     BYTE Reserved4[136];
     ULONG SessionId;
-} PEB;
+} PEB, *PPEB;
 
 typedef struct _OBJECT_ATTRIBUTES
 {
@@ -88,14 +103,11 @@ typedef struct _OBJECT_ATTRIBUTES
     ULONG           Attributes;
     PVOID           SecurityDescriptor;
     PVOID           SecurityQualityOfService;
-}  OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
+} OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
 
-typedef enum _SECTION_INHERIT
-{
-    ViewShare = 1,
-    ViewUnmap = 2
-} SECTION_INHERIT;
-
+//=============================================================================
+// Prototypes
+//=============================================================================
 EXTERN_C
 NTSTATUS
 NTAPI

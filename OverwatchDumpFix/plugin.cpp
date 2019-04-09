@@ -1,5 +1,6 @@
 #include "plugin.h"
 
+#include "anti_debug_util.h"
 #include "fix_dump.h"
 
 Debuggee debuggee;
@@ -7,7 +8,6 @@ Debuggee debuggee;
 // Plugin exported command.
 static const char cmdOverwatchDumpFix[] = "OverwatchDumpFix";
 
-static const char realPluginVersion[] = "v5.1.0";
 static const char authorName[] = "changeofpace";
 static const char githubSourceURL[] = R"(https://github.com/changeofpace/Overwatch-Dump-Fix)";
 
@@ -19,7 +19,7 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
     UNREFERENCED_PARAMETER(argc);
     UNREFERENCED_PARAMETER(argv);
 
-    pluginLog("Executing %s %s.\n", PLUGIN_NAME, realPluginVersion);
+    pluginLog("Executing %s v%d.\n", PLUGIN_NAME, PLUGIN_VERSION);
     if (!fixdump::current::FixOverwatch()) {
         pluginLog("Failed to complete. Open an issue on github with the error message and log output:\n");
         pluginLog("    %s\n", githubSourceURL);
@@ -35,6 +35,7 @@ static bool cbOverwatchDumpFix(int argc, char* argv[])
 PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
 {
     ULONG cbImageSize = 0;
+    BOOL status = TRUE;
 
     UNREFERENCED_PARAMETER(cbType);
 
@@ -43,7 +44,9 @@ PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
     //
     RtlSecureZeroMemory(&debuggee, sizeof(debuggee));
 
-    pluginLog("---------- Create Process Callback ----------\n");
+    INF_PRINT("===========================================================\n");
+    INF_PRINT("                  Create Process Callback\n");
+    INF_PRINT("===========================================================\n");
 
     //
     // Validate the callback parameters because we are compiling an old version
@@ -51,13 +54,13 @@ PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
     //
     if (!Info->fdProcessInfo->hProcess)
     {
-        pluginLog("Error: hProcess was null.\n");
+        ERR_PRINT("Error: hProcess was null.\n");
         goto exit;
     }
 
     if (!Info->modInfo->BaseOfImage)
     {
-        pluginLog("Error: BaseOfImage was null.\n");
+        ERR_PRINT("Error: BaseOfImage was null.\n");
         goto exit;
     }
 
@@ -68,7 +71,7 @@ PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
             Info->fdProcessInfo->hProcess,
             &cbImageSize))
     {
-        pluginLog("Error: GetOverwatchImageSize failed.\n");
+        ERR_PRINT("Error: GetOverwatchImageSize failed.\n");
         goto exit;
     }
 
@@ -79,11 +82,24 @@ PLUG_EXPORT void CBCREATEPROCESS(CBTYPE cbType, PLUG_CB_CREATEPROCESS* Info)
     debuggee.imageBase = Info->modInfo->BaseOfImage;
     debuggee.imageSize = cbImageSize;
 
-    pluginLog("    hProcess: 0x%IX\n", debuggee.hProcess);
-    pluginLog("    ImageBase: 0x%IX\n", debuggee.imageBase);
-    pluginLog("    ImageSize: 0x%X\n", debuggee.imageSize);
+    INF_PRINT("    hProcess:  0x%IX\n", debuggee.hProcess);
+    INF_PRINT("    ImageBase: %p\n", debuggee.imageBase);
+    INF_PRINT("    ImageSize: 0x%X\n", debuggee.imageSize);
+
+    //
+    // Remove anti-debugging techniques.
+    //
+    status = AduRevertPatchNtdllDbgBreakPoint(debuggee.hProcess);
+    if (!status)
+    {
+        ERR_PRINT(
+            "Failed to patch ntdll!DbgBreakPoint, debugger may fail to attach.\n");
+        goto exit;
+    }
 
 exit:
+    INF_PRINT("-----------------------------------------------------------\n");
+
     return;
 }
 
@@ -108,7 +124,7 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
         char buf[maxMessageBoxStringSize] = "";
 
         _snprintf_s(buf, maxMessageBoxStringSize, _TRUNCATE,
-                    "Author:  %s.\n\nsource code:  %s.",
+                    "Author:  %s\n\nSource Code:  %s",
                     authorName, githubSourceURL);
 
         MessageBoxA(hwndDlg, buf, "About", 0);
