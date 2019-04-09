@@ -20,6 +20,8 @@ Users must enable the **Use advanced IAT search** setting in the **Misc** sectio
 
 ### x64dbg
 
+Overwatch patches **ntdll.DbgBreakPoint** to prevent debuggers from attaching to the overwatch process. Use the **ScyllaHide** x64dbg plugin with the **Kill Anti-Attach** option enabled to bypass this.
+
 1. Attach x64dbg to Overwatch.exe then execute the **OverwatchDumpFix** command.
 2. Open **Scylla** in x64dbg's **Plugins** menu then select Overwatch.exe in the "Attach to an active process" drop-down list.
 3. Click **IAT Autosearch**.
