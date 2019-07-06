@@ -9,7 +9,6 @@
 *.jpg
 *.json
 *.lastbuildstate
-*.lib
 *.log
 *.metagen
 *.obj
