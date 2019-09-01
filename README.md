@@ -2,6 +2,8 @@
 
 This x64dbg plugin removes anti-dumping and obfuscation techniques from the popular FPS game Overwatch. It is meant to be used with Scylla (built into x64dbg) to produce process dump files for static analysis.
 
+This plugin can be used to dump most modern Blizzard games. e.g., It can be used to dump World of Warcraft Classic.
+
 This project is for educational use only.
 
 ## Usage
