@@ -107,12 +107,14 @@ exit:
 //
 // Instruction format values used in the deobfuscation code.
 //
-#define INSN_OPCODE_MOV_R64_IMM64   0xB8
-#define INSN_OPCODE_ADD_R64_IMM32   0x05
-#define INSN_OPCODE_SUB_R64_IMM32   0x2D
-#define INSN_OPCODE_XOR_R64_IMM32   0x35
-#define INSN_OPCODE_JMP_REL32       0xE9
-#define INSN_OPCODE_JMP_REG         0xFF
+#define INSN_OPCODE_IMUL                    0x0F
+#define INSN_OPCODE_MOV_R64_IMM64           0xB8
+#define INSN_OPCODE_MOV_R64_IMM64_RAX_R10   0xBA
+#define INSN_OPCODE_ADD_R64_IMM32           0x05
+#define INSN_OPCODE_SUB_R64_IMM32           0x2D
+#define INSN_OPCODE_XOR_R64_IMM32           0x35
+#define INSN_OPCODE_JMP_REL32               0xE9
+#define INSN_OPCODE_JMP_REG                 0xFF
 
 
 //
@@ -137,9 +139,12 @@ IdfpDeobfuscateEntry(
     // Zero out parameters.
     *pDeobfuscatedEntry = NULL;
 
+    // Storing r10 value during 0xBA (mov r10, imm64) operation
+    ULONG64 r10 = 0;
+
     for (PVOID pInstruction = (PVOID)((ULONG_PTR)pEmulationBuffer + EntryOffset);
         pInstruction >= pEmulationBuffer &&
-            pInstruction < (PVOID)((ULONG_PTR)pEmulationBuffer + PAGE_SIZE);
+        pInstruction < (PVOID)((ULONG_PTR)pEmulationBuffer + PAGE_SIZE);
         /**/)
     {
         //
@@ -174,40 +179,59 @@ IdfpDeobfuscateEntry(
         //
         switch (Disassembly.opcode)
         {
-            case INSN_OPCODE_MOV_R64_IMM64:
-                IntermediateEntry = Disassembly.imm.imm64;
-                break;
+        case INSN_OPCODE_MOV_R64_IMM64_RAX_R10:
+            // Store r10 value from the operation (used later)
+            r10 = Disassembly.imm.imm64;
+            break;
 
-            case INSN_OPCODE_ADD_R64_IMM32:
-                IntermediateEntry += Disassembly.imm.imm32;
-                break;
+        case INSN_OPCODE_MOV_R64_IMM64:
+            IntermediateEntry = Disassembly.imm.imm64;
+            break;
 
-            case INSN_OPCODE_SUB_R64_IMM32:
-                IntermediateEntry -= Disassembly.imm.imm32;
-                break;
+        case INSN_OPCODE_ADD_R64_IMM32:
+            IntermediateEntry += Disassembly.imm.imm32;
+            break;
 
-            case INSN_OPCODE_XOR_R64_IMM32:
-                IntermediateEntry ^= Disassembly.imm.imm32;
-                break;
+        case INSN_OPCODE_SUB_R64_IMM32:
+            IntermediateEntry -= Disassembly.imm.imm32;
+            break;
 
-            case INSN_OPCODE_JMP_REL32:
-                pInstruction = (PVOID)(
-                    (ULONG_PTR)pInstruction +
-                    cbInstruction +
-                    (LONG)Disassembly.imm.imm32);
+        case INSN_OPCODE_XOR_R64_IMM32:
+            IntermediateEntry ^= Disassembly.imm.imm32;
+            break;
 
-                fIsBranchInstruction = TRUE;
+        case INSN_OPCODE_JMP_REL32:
+            pInstruction = (PVOID)(
+                (ULONG_PTR)pInstruction +
+                cbInstruction +
+                (LONG)Disassembly.imm.imm32);
 
-                break;
+            fIsBranchInstruction = TRUE;
 
-            case INSN_OPCODE_JMP_REG:
-                DeobfuscatedEntry = IntermediateEntry;
-                break;
+            break;
 
-            default:
-                ERR_PRINT("Unhandled opcode: 0x%X\n", Disassembly.opcode);
+        case INSN_OPCODE_JMP_REG:
+            DeobfuscatedEntry = IntermediateEntry;
+            break;
+
+        case INSN_OPCODE_IMUL:
+            // Handle our errors, just in case so we don't have to look forever later
+            if (r10 == 0)
+            {
+                ERR_PRINT("r10 == 0, opcode: 0x%X\n" Disassembly.opcode);
                 status = FALSE;
                 goto exit;
+            }
+            // Multiply with r10 stored value
+            IntermediateEntry *= r10;
+            // reset r10 (dont know if this makes a difference but good practice I guess?)
+            r10 = 0;
+            break;
+
+        default:
+            ERR_PRINT("Unhandled opcode: 0x%X\n", Disassembly.opcode);
+            status = FALSE;
+            goto exit;
         }
 
         //
@@ -367,12 +391,12 @@ exit:
 _Check_return_
 BOOL
 IdfpPatchImportAddressTable(
-_In_ HANDLE hProcess,
-_In_ ULONG_PTR ImageBase,
-_In_ const REMOTE_PE_HEADER& RemotePeHeader,
-_In_ ULONG_PTR IatSection,
-_In_ PULONG_PTR pDeobfuscatedIatEntries,
-_In_ SIZE_T cIatEntries
+    _In_ HANDLE hProcess,
+    _In_ ULONG_PTR ImageBase,
+    _In_ const REMOTE_PE_HEADER& RemotePeHeader,
+    _In_ ULONG_PTR IatSection,
+    _In_ PULONG_PTR pDeobfuscatedIatEntries,
+    _In_ SIZE_T cIatEntries
 
 )
 {
