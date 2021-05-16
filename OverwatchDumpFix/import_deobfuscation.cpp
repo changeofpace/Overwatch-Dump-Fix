@@ -218,7 +218,7 @@ IdfpDeobfuscateEntry(
             // Handle our errors, just in case so we don't have to look forever later
             if (r10 == 0)
             {
-                ERR_PRINT("r10 == 0, opcode: 0x%X\n" Disassembly.opcode);
+                ERR_PRINT("r10 == 0, opcode: 0x%X\n", Disassembly.opcode);
                 status = FALSE;
                 goto exit;
             }
